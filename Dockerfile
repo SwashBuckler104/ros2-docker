@@ -45,6 +45,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # ---------------------------------------------------------------------------
 # Select base per GPU arg, then everything below is identical for both.
 # ---------------------------------------------------------------------------
+# base-off/base-on are internal stages pinned by digest above (lines 20/26),
+# not a registry pull -- there's no further tag to add here.
+# hadolint ignore=DL3006
 FROM base-${GPU} AS base
 
 ARG GPU=off
@@ -63,6 +66,11 @@ ENV ROS_DISTRO=${ROS_DISTRO} \
     WORKSPACE_DIR=/home/dev/ws \
     OVERLAY_WS=/opt/overlay_ws
 
+# pipefail so a failing `grep`/`cmake`/etc. earlier in a pipe (e.g. the
+# apt-packages.txt filter below) fails the RUN instead of being masked by
+# the last command's exit code -- /bin/sh's default shell doesn't do this.
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
 # --- Layer: common system + build-toolchain packages -----------------------
 COPY deps/apt-packages.txt /tmp/apt-packages.txt
 RUN apt-get update \
@@ -77,14 +85,23 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # --- Layer: non-root dev user, UID/GID-mapped to the host -----------------
 COPY common/create-user.sh /tmp/create-user.sh
+# `env FOO=bar cmd`, not `FOO=bar cmd`: now that SHELL is bash (for pipefail
+# above), a bare `UID=... cmd` prefix-assignment fails outright ("readonly
+# variable") because bash rejects assigning to its own $UID builtin even in
+# prefix-assignment form -- it only ever *inherits* UID from an environment,
+# never lets you assign it directly. Routing through the external `env`
+# sets the child's environment without going through bash's assignment
+# syntax at all, so create-user.sh (itself bash, which does inherit env UID
+# into its own read-only $UID at startup) still sees the intended value.
 RUN chmod +x /tmp/create-user.sh \
-    && DEV_USER=dev UID=${HOST_UID} GID=${HOST_GID} /tmp/create-user.sh \
+    && env DEV_USER=dev UID=${HOST_UID} GID=${HOST_GID} /tmp/create-user.sh \
     && rm /tmp/create-user.sh \
     && mkdir -p ${WORKSPACE_DIR}/src ${OVERLAY_WS}/src \
     && chown -R ${HOST_UID}:${HOST_GID} /home/dev ${OVERLAY_WS}
 
 # --- Layer: Ceres Solver 2.1.0, built from source (VINS-Fusion dependency) -
 ARG CERES_COMMIT=f68321e7de8929fbcdb95dd42877531e64f72f66
+# hadolint ignore=DL3003
 RUN git clone https://github.com/ceres-solver/ceres-solver.git /tmp/ceres-solver \
     && cd /tmp/ceres-solver \
     && git checkout ${CERES_COMMIT} \
@@ -100,6 +117,7 @@ RUN git clone https://github.com/ceres-solver/ceres-solver.git /tmp/ceres-solver
 # pinning -- see README "Pinned sources").
 ARG VINS_REPO=https://github.com/fanhong-li/VINS-Fusion-ROS2-Humble.git
 ARG VINS_COMMIT=8993f559d93f7235c7cefe8f4951ef349d8cf245
+# hadolint ignore=DL3003
 RUN git clone ${VINS_REPO} ${OVERLAY_WS}/src/VINS-Fusion-ROS2-Humble \
     && cd ${OVERLAY_WS}/src/VINS-Fusion-ROS2-Humble \
     && git checkout ${VINS_COMMIT}
@@ -117,6 +135,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 ARG PX4_MSGS_COMMIT=ffb6e80e1c17e5714395611a020c282a87af8fa4
 ARG PX4_ROS_COM_COMMIT=e18248db6211350e6a418cb08ae38f64c314a2f4
 ARG MICRO_XRCE_DDS_AGENT_TAG=v2.4.3
+# hadolint ignore=DL3003
 RUN if [ "${ENABLE_PX4}" = "on" ]; then \
       git clone https://github.com/PX4/px4_msgs.git ${OVERLAY_WS}/src/px4_msgs \
         && git -C ${OVERLAY_WS}/src/px4_msgs checkout ${PX4_MSGS_COMMIT} \
@@ -146,7 +165,6 @@ RUN apt-get update \
 # directories to the image root (/build, /install, /log) instead of under
 # ${OVERLAY_WS}, leaving /opt/overlay_ws/install/setup.bash missing and
 # VINS-Fusion unusable despite colcon reporting a clean build.
-SHELL ["/bin/bash", "-c"]
 WORKDIR ${OVERLAY_WS}
 RUN source /opt/ros/${ROS_DISTRO}/setup.bash \
     && colcon build --merge-install --cmake-args -DCMAKE_BUILD_TYPE=Release \
