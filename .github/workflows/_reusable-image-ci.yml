@@ -1,0 +1,57 @@
+name: Reusable image CI
+
+# Called by each branch's own .github/workflows/ci.yml. Lives on main and is
+# copied down into every branch; re-sync from main if this changes.
+
+on:
+  workflow_call:
+    inputs:
+      image-tag:
+        description: Tag to build and smoke-test
+        required: true
+        type: string
+      smoke-test-cmd:
+        description: Command run inside the built image to smoke-test it
+        required: true
+        type: string
+      dockerfile:
+        description: Path to the Dockerfile
+        required: false
+        type: string
+        default: Dockerfile
+      build-args:
+        description: Newline-separated build args, e.g. "GPU=off\nUID=1000"
+        required: false
+        type: string
+        default: "GPU=off"
+
+jobs:
+  hadolint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint Dockerfile
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: ${{ inputs.dockerfile }}
+          # DL3008/DL3013: unpinned apt/pip versions -- tracked as a known
+          # gap on branches that install via rosdep-resolved package lists.
+          ignore: DL3008,DL3013
+
+  build-and-smoke-test:
+    needs: hadolint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image
+        run: |
+          BUILD_ARGS=()
+          while IFS= read -r arg; do
+            [ -z "$arg" ] && continue
+            BUILD_ARGS+=(--build-arg "$arg")
+          done <<< "${{ inputs.build-args }}"
+          docker build -f "${{ inputs.dockerfile }}" "${BUILD_ARGS[@]}" -t "${{ inputs.image-tag }}" .
+
+      - name: Smoke test
+        run: docker run --rm "${{ inputs.image-tag }}" bash -lc "${{ inputs.smoke-test-cmd }}"

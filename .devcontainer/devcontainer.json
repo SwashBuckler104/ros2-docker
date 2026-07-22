@@ -1,0 +1,27 @@
+{
+  "name": "ros2-docker",
+  "build": {
+    "dockerfile": "../Dockerfile",
+    "context": "..",
+    "args": {
+      "GPU": "off",
+      "UID": "${localEnv:UID:1000}",
+      "GID": "${localEnv:GID:1000}"
+    }
+  },
+  "runArgs": ["--network=host", "--cap-add=SYS_PTRACE"],
+  "remoteUser": "dev",
+  "workspaceFolder": "/home/dev/ws",
+  "workspaceMount": "source=${localWorkspaceFolder}/workspace,target=/home/dev/ws,type=bind",
+  "postCreateCommand": "sudo rosdep update",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-vscode.cpptools",
+        "ms-python.python",
+        "ms-iot.vscode-ros",
+        "redhat.vscode-xml"
+      ]
+    }
+  }
+}

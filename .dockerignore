@@ -1,0 +1,10 @@
+.git
+.github
+.devcontainer
+workspace/build
+workspace/install
+workspace/log
+**/__pycache__
+**/*.pyc
+*.md
+!README.md
