@@ -1,0 +1,10 @@
+# RL stack, installed in its own Dockerfile layer, pinned exactly.
+# torch/torchvision are installed separately in the Dockerfile from the
+# CUDA-matched wheel index (cu124) when GPU=on, or the default CPU index
+# when GPU=off -- pins live here as the single source of truth for both.
+numpy==1.26.4
+torch==2.5.1
+torchvision==0.20.1
+gymnasium==0.29.1
+stable-baselines3==2.4.0
+tensorboard==2.18.0

@@ -5,8 +5,8 @@
     "context": "..",
     "args": {
       "GPU": "off",
-      "UID": "${localEnv:UID:1000}",
-      "GID": "${localEnv:GID:1000}"
+      "HOST_UID": "${localEnv:UID:1000}",
+      "HOST_GID": "${localEnv:GID:1000}"
     }
   },
   "runArgs": ["--network=host", "--cap-add=SYS_PTRACE"],

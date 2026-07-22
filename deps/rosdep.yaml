@@ -1,0 +1,7 @@
+# Custom rosdep sources for keys not in the default rosdep DB.
+# Everything else is resolved straight from each package's package.xml via
+# `rosdep install --from-paths src --ignore-src` (see Dockerfile). Nothing
+# needed here yet: VINS-Fusion's package.xml deps and MAVROS are both in the
+# default DB. Add entries here (and register via
+# rosdep/sources.list.d) only when a package pulls in a key the default DB
+# doesn't know about, e.g. a hand-rolled PX4 message package.

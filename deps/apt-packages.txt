@@ -1,0 +1,36 @@
+# System / dev-tool apt packages, one per line, installed in a single layer.
+# ROS2 packages are listed separately (they differ between the CPU and GPU
+# base stages); this file is for build-toolchain + library deps.
+# Comments and blank lines are stripped by the Dockerfile's xargs install.
+
+build-essential
+cmake
+git
+curl
+wget
+gnupg2
+lsb-release
+ca-certificates
+software-properties-common
+sudo
+x11-apps
+python3-pip
+
+# Ceres Solver build deps (VINS-Fusion requires Ceres 2.1.0, built from
+# source -- see Dockerfile)
+libeigen3-dev
+libgoogle-glog-dev
+libgflags-dev
+libatlas-base-dev
+libsuitesparse-dev
+libmetis-dev
+
+# vins_lib links libcurl directly (VINS-Fusion-ROS2-Humble/vins/CMakeLists.txt)
+libcurl4-openssl-dev
+
+# camera_models package needs Boost::filesystem/program_options/system
+# (VINS-Fusion-ROS2-Humble/camera_models/CMakeLists.txt); GeographicLib is
+# vendored in-tree under global_fusion/ThirdParty, no system dep needed.
+libboost-filesystem-dev
+libboost-program-options-dev
+libboost-system-dev

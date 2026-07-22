@@ -1,0 +1,23 @@
+name: humble/drone CI
+
+on:
+  push:
+    branches: [humble/drone]
+  pull_request:
+    branches: [humble/drone]
+
+jobs:
+  ci:
+    uses: ./.github/workflows/_reusable-image-ci.yml
+    with:
+      image-tag: ros2-docker:humble-drone-ci
+      build-args: |
+        GPU=off
+        ENABLE_PX4=off
+      smoke-test-cmd: >-
+        source /opt/ros/humble/setup.bash &&
+        ros2 --help &&
+        source /opt/overlay_ws/install/setup.bash &&
+        ros2 pkg list | grep -qx vins &&
+        ros2 pkg list | grep -q mavros &&
+        colcon build --symlink-install --base-paths /home/dev/ws

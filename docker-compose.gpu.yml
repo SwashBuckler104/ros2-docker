@@ -1,0 +1,19 @@
+# Optional overlay: GPU render-node + NVIDIA CUDA passthrough for the
+# `drone` service. Only apply this on a host with an NVIDIA GPU AND the
+# NVIDIA Container Toolkit installed (see README) -- both entries below
+# make `docker compose up` fail outright if either is missing, which is
+# exactly why they live here instead of in the base docker-compose.yml.
+#
+# Usage:
+#   GPU=on docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build
+services:
+  drone:
+    devices:
+      - /dev/dri:/dev/dri
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

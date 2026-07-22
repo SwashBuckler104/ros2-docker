@@ -1,0 +1,46 @@
+services:
+  # UID/GID default to 1000 unless exported into the environment first, e.g.
+  # `UID=$(id -u) GID=$(id -g) docker compose up --build` -- bash does not
+  # export its builtin $UID/$GID automatically. Prefer scripts/build.sh,
+  # which does this detection for you.
+  #
+  # This base file is deliberately hardware-agnostic -- it works unmodified
+  # on any PC (CPU-only, integrated GPU, or a discrete GPU you're not using
+  # through Docker yet). It intentionally does NOT request /dev/dri or an
+  # NVIDIA GPU reservation: Compose has no way to make a `devices:`/`deploy:`
+  # entry conditional, and both fail `docker compose up` outright on a host
+  # that doesn't have them. To opt into GPU rendering/CUDA passthrough (only
+  # once the NVIDIA Container Toolkit is installed -- see README), layer in
+  # docker-compose.gpu.yml:
+  #   GPU=on docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build
+  # scripts/run.sh does the equivalent detection for you automatically, and
+  # is the recommended path if you don't need Compose specifically.
+  drone:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        GPU: "${GPU:-off}"
+        ENABLE_PX4: "${ENABLE_PX4:-off}"
+        HOST_UID: "${UID:-1000}"
+        HOST_GID: "${GID:-1000}"
+    image: ros2-docker:humble-drone
+    container_name: ros2-docker-humble-drone
+    stdin_open: true
+    tty: true
+    network_mode: host
+    ipc: host
+    privileged: false
+    environment:
+      - DISPLAY=${DISPLAY}
+      - QT_X11_NO_MITSHM=1
+    volumes:
+      - ./workspace:/home/dev/ws:rw
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - /dev:/dev
+    # Lets the non-root `dev` user open serial devices (e.g. a
+    # CubeOrangePlus on /dev/ttyACM0), which are normally root:dialout 660
+    # on the host. Override DIALOUT_GID if your host's dialout group isn't
+    # gid 20 (check with `getent group dialout`).
+    group_add:
+      - "${DIALOUT_GID:-20}"

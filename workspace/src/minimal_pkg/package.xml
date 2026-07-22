@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>minimal_pkg</name>
+  <version>0.0.1</version>
+  <description>
+    Trivial ament_cmake package used only to give CI's smoke test and
+    scripts/build.sh something real to colcon build against.
+  </description>
+  <maintainer email="businesswhatdheck@gmail.com">ros2-docker maintainers</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>rclcpp</depend>
+
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
