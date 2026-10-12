@@ -9,6 +9,10 @@
 #   GPU=on docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build
 services:
   drone:
+    # Also mount the driver's OpenGL/EGL libraries (graphics,display), so
+    # rviz2/Gazebo render on the GPU instead of Mesa's software fallback.
+    environment:
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility,graphics,display
     deploy:
       resources:
         reservations:

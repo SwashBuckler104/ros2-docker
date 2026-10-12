@@ -30,9 +30,14 @@ FROM osrf/ros:humble-desktop@sha256:3d87cf339919a85cff7743ec9ba5e7ec81ccc26c9f72
 FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04@sha256:2fcc4280646484290cc50dce5e65f388dd04352b07cbe89a635703bd1f9aedb6 AS base-on
 
 ARG ROS_DISTRO=humble
+# NVIDIA_DRIVER_CAPABILITIES: the CUDA base ships compute,utility only, so
+# the NVIDIA Container Toolkit never mounted the driver's OpenGL/EGL/GLX
+# libraries and rviz2/Gazebo rendered on Mesa's software llvmpipe even with
+# --gpus all. graphics,display adds them.
 ENV ROS_DISTRO=${ROS_DISTRO} \
     DEBIAN_FRONTEND=noninteractive \
-    LANG=en_US.UTF-8
+    LANG=en_US.UTF-8 \
+    NVIDIA_DRIVER_CAPABILITIES=compute,utility,graphics,display
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
       locales curl gnupg2 lsb-release ca-certificates software-properties-common \

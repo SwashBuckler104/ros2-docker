@@ -21,9 +21,13 @@ while [ $# -gt 0 ]; do
   esac
 done
 
+# graphics,display on top of the default compute,utility makes the NVIDIA
+# Container Toolkit also mount the driver's OpenGL/EGL libraries, so
+# rviz2/Gazebo render on the GPU instead of Mesa's software fallback (also
+# set in the GPU image; repeated here for a CPU image on a GPU host).
 GPU_FLAGS=()
 if [ "$(detect_gpu)" = "on" ]; then
-  GPU_FLAGS=(--gpus all)
+  GPU_FLAGS=(--gpus all -e NVIDIA_DRIVER_CAPABILITIES=compute,utility,graphics,display)
 fi
 
 # The /dev bind-mount below only makes device nodes visible; the device
