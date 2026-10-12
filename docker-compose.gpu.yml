@@ -6,9 +6,16 @@
 # overlay: the base file allows them via a device cgroup rule.)
 #
 # Usage:
-#   GPU=on docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build
 services:
   drone:
+    # Builds and runs the GPU variant under its own tag, like
+    # `scripts/build.sh --gpu on` does, so a Compose GPU build neither needs
+    # GPU=on in the environment nor overwrites the CPU image's tag.
+    build:
+      args:
+        GPU: "on"
+    image: ros2-docker:humble-drone-gpu
     # Also mount the driver's OpenGL/EGL libraries (graphics,display), so
     # rviz2/Gazebo render on the GPU instead of Mesa's software fallback.
     environment:

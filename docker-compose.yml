@@ -16,7 +16,7 @@ services:
   # conditional, and it fails `docker compose up` outright on a host without
   # the NVIDIA Container Toolkit. To opt into CUDA passthrough (only once the
   # toolkit is installed -- see README), layer in docker-compose.gpu.yml:
-  #   GPU=on docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build
+  #   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build
   # scripts/run.sh does the equivalent detection for you automatically, and
   # is the recommended path if you don't need Compose specifically.
   drone:

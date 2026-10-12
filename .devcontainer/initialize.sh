@@ -6,8 +6,10 @@
 #      write_host_env (same as scripts/setup-env.sh), which Compose reads
 #      automatically and docker-compose.yml requires;
 #   2. allows local X11 clients, same as scripts/run.sh;
-#   3. makes sure the ros2-docker:humble-drone image exists (building it via
-#      scripts/build.sh if not) and is new enough for the dev container.
+#   3. makes sure the image exists (building it via scripts/build.sh if not)
+#      and is new enough for the dev container: ros2-docker:humble-drone
+#      for cpu, ros2-docker:humble-drone-gpu (the tag docker-compose.gpu.yml
+#      runs) for gpu.
 #
 # Usage: .devcontainer/initialize.sh [cpu|gpu]
 set -euo pipefail
@@ -16,11 +18,11 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 source scripts/lib/common.sh
 
 VARIANT="${1:-cpu}"
-IMAGE="ros2-docker:humble-drone"
 ENV_FILE=".env"
 
 case "${VARIANT}" in
-  cpu|gpu) ;;
+  cpu) IMAGE="ros2-docker:humble-drone"; BUILD_CMD=(scripts/build.sh) ;;
+  gpu) IMAGE="ros2-docker:humble-drone-gpu"; BUILD_CMD=(scripts/build.sh --gpu on) ;;
   *) die "Unknown variant: ${VARIANT} (expected cpu or gpu)" ;;
 esac
 
@@ -36,12 +38,8 @@ if [ "${VARIANT}" = "gpu" ] && [ "$(detect_gpu)" != "on" ]; then
 fi
 
 if ! docker image inspect "${IMAGE}" >/dev/null 2>&1; then
-  log "${IMAGE} not found; building it once with scripts/build.sh (this takes a while)"
-  if [ "${VARIANT}" = "gpu" ]; then
-    scripts/build.sh --gpu on
-  else
-    scripts/build.sh
-  fi
+  log "${IMAGE} not found; building it once with ${BUILD_CMD[*]} (this takes a while)"
+  "${BUILD_CMD[@]}"
 fi
 
 # Images built before the dev container support lack ~/.vscode-server, and
@@ -49,9 +47,4 @@ fi
 # clear message instead of a permission error halfway through VS Code's
 # server install.
 docker run --rm --network none --entrypoint /usr/bin/test "${IMAGE}" -d /home/dev/.vscode-server \
-  || die "${IMAGE} predates VS Code Dev Containers support. Rebuild it with ./scripts/build.sh, then reopen."
-
-if [ "${VARIANT}" = "gpu" ] \
-    && [ "$(docker image inspect -f '{{.Id}}' "${IMAGE}")" != "$(docker image inspect -f '{{.Id}}' ros2-docker:humble-drone-gpu 2>/dev/null || true)" ]; then
-  warn "${IMAGE} is not the GPU build, so PyTorch will not see CUDA. Run ./scripts/build.sh --gpu on, then rebuild the container."
-fi
+  || die "${IMAGE} predates VS Code Dev Containers support. Rebuild it with ./${BUILD_CMD[*]}, then reopen."
