@@ -2,7 +2,9 @@ services:
   # UID/GID default to 1000 unless exported into the environment first, e.g.
   # `UID=$(id -u) GID=$(id -g) docker compose up --build` -- bash does not
   # export its builtin $UID/$GID automatically. Prefer scripts/build.sh,
-  # which does this detection for you.
+  # which does this detection for you. (Opening the repo in a VS Code dev
+  # container also records them, plus DIALOUT_GID, in a gitignored ./.env,
+  # which Compose reads automatically.)
   #
   # This base file is deliberately hardware-agnostic -- it works unmodified
   # on any PC (CPU-only, integrated GPU, or a discrete GPU you're not using

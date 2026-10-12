@@ -4,3 +4,5 @@ workspace/log/
 *.pyc
 __pycache__/
 .vscode/
+# Host UID/GID/dialout gid written by .devcontainer/initialize.sh.
+.env

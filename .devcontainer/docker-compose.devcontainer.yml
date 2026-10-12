@@ -1,0 +1,31 @@
+# Dev Containers-only overrides for the `drone` service in
+# ../docker-compose.yml, layered on top of it by devcontainer.json (and
+# gpu/devcontainer.json). Everything else -- network/ipc host, X11, /dev,
+# dialout group, the ./workspace bind-mount -- is inherited unchanged, so a
+# VS Code container behaves exactly like `docker compose up` /
+# scripts/run.sh.
+#
+# Own project + container name so a VS Code session never collides with (or
+# gets recreated by) a plain `docker compose up` / scripts/run.sh container.
+name: ros2-docker-devcontainer
+services:
+  drone:
+    # Run the image scripts/build.sh already produced instead of building a
+    # second one: the Dev Containers CLI runs `docker compose build` whenever
+    # the service has a `build:` section, and with different build args
+    # (e.g. GPU auto-detected by build.sh but not by Compose) that is a full
+    # rebuild of a ~13 GB image. initialize.sh builds it via build.sh if it is
+    # missing. `!reset` needs Docker Compose >= 2.24.
+    build: !reset null
+    pull_policy: never
+    container_name: ros2-docker-humble-drone-devcontainer
+    volumes:
+      # VS Code server + in-container extensions survive container rebuilds
+      # instead of being re-downloaded every time (see the Dockerfile's
+      # "VS Code Dev Containers support" layer for why the directory has to
+      # exist in the image).
+      - vscode-server:/home/dev/.vscode-server
+
+volumes:
+  vscode-server:
+    name: ros2-docker-vscode-server

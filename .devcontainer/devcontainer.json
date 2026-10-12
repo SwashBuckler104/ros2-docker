@@ -1,26 +1,54 @@
+// VS Code Dev Containers config -- works on any host (CPU-only, iGPU, or a
+// discrete GPU you are not passing through). See README "VS Code". For CUDA
+// in the container, pick the "NVIDIA GPU" config (gpu/devcontainer.json)
+// instead. Keep the two files in sync.
+//
+// Reuses the `drone` service from ../docker-compose.yml, so this runs the
+// same ros2-docker:humble-drone image, with the same runtime flags, as
+// `docker compose up` and scripts/run.sh. No second image is built. Do not
+// add "features": they make the Dev Containers CLI build an extended image.
 {
-  "name": "ros2-docker",
-  "build": {
-    "dockerfile": "../Dockerfile",
-    "context": "..",
-    "args": {
-      "GPU": "off",
-      "HOST_UID": "${localEnv:UID:1000}",
-      "HOST_GID": "${localEnv:GID:1000}"
-    }
-  },
-  "runArgs": ["--network=host", "--cap-add=SYS_PTRACE"],
-  "remoteUser": "dev",
+  "name": "ros2-docker humble/drone (CPU)",
+  "dockerComposeFile": ["../docker-compose.yml", "docker-compose.devcontainer.yml"],
+  "service": "drone",
   "workspaceFolder": "/home/dev/ws",
-  "workspaceMount": "source=${localWorkspaceFolder}/workspace,target=/home/dev/ws,type=bind",
-  "postCreateCommand": "sudo rosdep update",
+  "remoteUser": "dev",
+
+  // Host side: writes UID/GID/DIALOUT_GID to ./.env, runs xhost, and builds
+  // the image via scripts/build.sh if it does not exist yet.
+  "initializeCommand": ["bash", "${localWorkspaceFolder}/.devcontainer/initialize.sh", "cpu"],
+
+  // Keep the container alive independently of the image's interactive
+  // `bash` CMD, with tini as PID 1 to reap processes orphaned by
+  // `ros2 launch`. Closing the last VS Code window stops (not removes) it.
+  "overrideCommand": true,
+  "init": true,
+  "shutdownAction": "stopCompose",
+
+  // Lets gdb attach to running nodes and disable ASLR for launched ones.
+  "capAdd": ["SYS_PTRACE"],
+  "securityOpt": ["seccomp=unconfined"],
+
+  // VS Code takes the environment of its server, extensions, tasks and
+  // debuggers from a login interactive bash, i.e. from ~/.bashrc sourcing
+  // ROS 2 + /opt/overlay_ws + ~/ws/install.
+  "userEnvProbe": "loginInteractiveShell",
+
+  // As `dev`, not root: the image's build-time `rosdep update` only filled
+  // root's cache. Non-fatal so an offline start still opens.
+  "postCreateCommand": "rosdep update || echo 'rosdep update failed (offline?) - run it manually later'",
+
   "customizations": {
     "vscode": {
+      // Editor settings live in workspace/.vscode/ so the "Attach to Running
+      // Container" workflow gets them too.
       "extensions": [
         "ms-vscode.cpptools",
         "ms-python.python",
-        "ms-iot.vscode-ros",
-        "redhat.vscode-xml"
+        "ms-python.vscode-pylance",
+        "ranch-hand-robotics.rde-ros-2",
+        "redhat.vscode-xml",
+        "redhat.vscode-yaml"
       ]
     }
   }

@@ -1,0 +1,43 @@
+// VS Code Dev Containers config with NVIDIA GPU passthrough: layers
+// ../../docker-compose.gpu.yml on top, so it needs an NVIDIA GPU + the NVIDIA
+// Container Toolkit on the host (see README "GPU support"). Otherwise
+// identical to ../devcontainer.json -- keep the two files in sync; the
+// comments there explain each setting.
+{
+  "name": "ros2-docker humble/drone (NVIDIA GPU)",
+  "dockerComposeFile": [
+    "../../docker-compose.yml",
+    "../../docker-compose.gpu.yml",
+    "../docker-compose.devcontainer.yml",
+    "docker-compose.devcontainer-gpu.yml"
+  ],
+  "service": "drone",
+  "workspaceFolder": "/home/dev/ws",
+  "remoteUser": "dev",
+
+  "initializeCommand": ["bash", "${localWorkspaceFolder}/.devcontainer/initialize.sh", "gpu"],
+
+  "overrideCommand": true,
+  "init": true,
+  "shutdownAction": "stopCompose",
+
+  "capAdd": ["SYS_PTRACE"],
+  "securityOpt": ["seccomp=unconfined"],
+
+  "userEnvProbe": "loginInteractiveShell",
+
+  "postCreateCommand": "rosdep update || echo 'rosdep update failed (offline?) - run it manually later'",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-vscode.cpptools",
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "ranch-hand-robotics.rde-ros-2",
+        "redhat.vscode-xml",
+        "redhat.vscode-yaml"
+      ]
+    }
+  }
+}
