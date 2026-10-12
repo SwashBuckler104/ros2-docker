@@ -9,3 +9,7 @@ workspace/log
 *.md
 !README.md
 .env
+# Host editor/agent state: never needed in the image, and can be large
+# (the C/C++ extension's browse database alone can exceed 1 GB).
+.vscode
+.claude
