@@ -44,16 +44,11 @@ default_build_jobs() {
   echo "${jobs}"
 }
 
-# Echo the gid of host group $1, or nothing if the host has no such group.
+# Echo the gid of host group $1 (e.g. dialout, which owns serial devices
+# like /dev/ttyACM0), or nothing if the host has no such group -- callers
+# skip --group-add for it rather than fail.
 host_group_gid() {
   getent group "$1" 2>/dev/null | cut -d: -f3 || true
-}
-
-# Echo the host's `dialout` group gid (owns serial devices like
-# /dev/ttyACM0 on most Linux distros), or nothing if there isn't one --
-# callers should skip --group-add entirely in that case rather than fail.
-host_dialout_gid() {
-  host_group_gid dialout
 }
 
 # Refuse to run as root (directly or via sudo). The host UID/GID are baked

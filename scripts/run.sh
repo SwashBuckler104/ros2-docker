@@ -26,28 +26,29 @@ if [ "$(detect_gpu)" = "on" ]; then
   GPU_FLAGS=(--gpus all)
 fi
 
-# /dev/dri (GPU render nodes, integrated or discrete) doesn't exist on
-# headless hosts -- only pass it through when present, so this still runs
-# on any PC (CPU-only cloud VM, laptop with just an iGPU, etc).
-DEVICE_FLAGS=()
-if [ -e /dev/dri ]; then
-  DEVICE_FLAGS+=(--device /dev/dri:/dev/dri)
-fi
-
 # The /dev bind-mount below only makes device nodes visible; the device
 # cgroup still blocks opening them unless allowed by major number (also
-# covers hot-plugged devices): 166 = /dev/ttyACM* (e.g. a CubeOrangePlus
-# over USB), 188 = /dev/ttyUSB* (telemetry radios, USB-serial adapters).
-DEVICE_FLAGS+=(--device-cgroup-rule 'c 166:* rmw' --device-cgroup-rule 'c 188:* rmw')
+# covers hot-plugged devices, and is harmless for devices the host doesn't
+# have): 166 = /dev/ttyACM* (e.g. a CubeOrangePlus over USB), 188 =
+# /dev/ttyUSB* (telemetry radios, USB-serial adapters), 81 = /dev/video*
+# (V4L2 cameras), 226 = /dev/dri/* (GPU nodes for rviz2/Gazebo rendering).
+DEVICE_FLAGS=()
+for major in 166 188 81 226; do
+  DEVICE_FLAGS+=(--device-cgroup-rule "c ${major}:* rmw")
+done
 
-# Serial devices (e.g. a CubeOrangePlus on /dev/ttyACM0) are normally
-# root:dialout 660 on the host; add the container to that gid so the
-# non-root `dev` user can open them without a manual chmod/sudo.
+# Those devices are normally group-owned on the host -- serial ports
+# root:dialout 660, cameras and GPU card nodes root:video, GPU render nodes
+# root:render -- so add the container to the host's gids for those groups,
+# letting the non-root `dev` user open them without a manual chmod/sudo.
+# Groups the host doesn't have are skipped.
 GROUP_FLAGS=()
-DIALOUT_GID="$(host_dialout_gid)"
-if [ -n "${DIALOUT_GID}" ]; then
-  GROUP_FLAGS+=(--group-add "${DIALOUT_GID}")
-fi
+for group in dialout video render; do
+  gid="$(host_group_gid "${group}")"
+  if [ -n "${gid}" ]; then
+    GROUP_FLAGS+=(--group-add "${gid}")
+  fi
+done
 
 xhost +local:docker >/dev/null 2>&1 || warn "xhost not available; X11 forwarding may not work"
 

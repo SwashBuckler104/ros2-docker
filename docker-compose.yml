@@ -9,12 +9,13 @@ services:
   #
   # This base file is deliberately hardware-agnostic -- it works unmodified
   # on any PC (CPU-only, integrated GPU, or a discrete GPU you're not using
-  # through Docker yet). It intentionally does NOT request /dev/dri or an
-  # NVIDIA GPU reservation: Compose has no way to make a `devices:`/`deploy:`
-  # entry conditional, and both fail `docker compose up` outright on a host
-  # that doesn't have them. To opt into GPU rendering/CUDA passthrough (only
-  # once the NVIDIA Container Toolkit is installed -- see README), layer in
-  # docker-compose.gpu.yml:
+  # through Docker yet). GPU render nodes (/dev/dri) come in through the /dev
+  # bind-mount plus a device cgroup rule, which, unlike a `devices:` entry,
+  # doesn't fail on a host that has none. It intentionally does NOT request
+  # an NVIDIA GPU reservation: Compose has no way to make a `deploy:` entry
+  # conditional, and it fails `docker compose up` outright on a host without
+  # the NVIDIA Container Toolkit. To opt into CUDA passthrough (only once the
+  # toolkit is installed -- see README), layer in docker-compose.gpu.yml:
   #   GPU=on docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build
   # scripts/run.sh does the equivalent detection for you automatically, and
   # is the recommended path if you don't need Compose specifically.
@@ -44,17 +45,28 @@ services:
       - ./workspace:/home/dev/ws:rw
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
       - /dev:/dev
-    # Lets the non-root `dev` user open serial devices (e.g. a
-    # CubeOrangePlus on /dev/ttyACM0), which are normally root:dialout 660
-    # on the host. DIALOUT_GID is the host's gid, from .env.
+    # Lets the non-root `dev` user open devices that are group-owned on the
+    # host, all gids from .env: serial ports (root:dialout, e.g. a
+    # CubeOrangePlus on /dev/ttyACM0), cameras and GPU card nodes
+    # (root:video, /dev/video*, /dev/dri/card*) and GPU render nodes
+    # (root:render, /dev/dri/renderD*). Without video/render, Mesa can only
+    # open the GPU through the logind ACL a local desktop login gets, and
+    # rviz2/Gazebo silently fall back to software rendering everywhere else
+    # (SSH, remote desktop).
     group_add:
       - "${DIALOUT_GID:?run ./scripts/setup-env.sh first (writes .env)}"
+      - "${VIDEO_GID:?run ./scripts/setup-env.sh first (writes .env)}"
+      - "${RENDER_GID:?run ./scripts/setup-env.sh first (writes .env)}"
     # The /dev bind-mount above only makes device nodes *visible*; the
     # container's device cgroup still refuses to open them (EPERM, even as
     # root) unless allowed here. 166 = USB CDC-ACM (/dev/ttyACM*, e.g. a
     # CubeOrangePlus over USB), 188 = USB-serial adapters (/dev/ttyUSB*,
-    # telemetry radios). Matches by major number, so hot-plugged devices
-    # work too.
+    # telemetry radios), 81 = V4L2 cameras (/dev/video*, e.g. a VINS camera),
+    # 226 = DRI GPU nodes (/dev/dri/*, hardware-accelerated rviz2/Gazebo).
+    # Matches by major number, so hot-plugged devices work too, and a rule
+    # for a device the host doesn't have is harmless.
     device_cgroup_rules:
       - "c 166:* rmw"
       - "c 188:* rmw"
+      - "c 81:* rmw"
+      - "c 226:* rmw"
