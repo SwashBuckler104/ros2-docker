@@ -57,6 +57,11 @@ done
 allow_x11_for_user
 
 log "Running ${TAG} as ${NAME}"
+# ROS_DOMAIN_ID/ROS_LOCALHOST_ONLY/RMW_IMPLEMENTATION: passed through from
+# your shell only when set (`-e VAR` without a value), else ROS defaults.
+# With --network host every ROS 2 node on the LAN in the same domain
+# (default 0) can see and command yours -- see README "ROS 2 networking".
+#
 # --init: tini as PID 1 forwards SIGTERM (an interactive bash as PID 1
 # ignores it, so `docker stop` always waited 10 s, then SIGKILLed) and reaps
 # processes orphaned by `ros2 launch`.
@@ -66,6 +71,7 @@ docker run -it --rm --init \
   --ipc host \
   -e DISPLAY="${DISPLAY:-}" \
   -e QT_X11_NO_MITSHM=1 \
+  -e ROS_DOMAIN_ID -e ROS_LOCALHOST_ONLY -e RMW_IMPLEMENTATION \
   -v /tmp/.X11-unix:/tmp/.X11-unix:rw \
   -v "$(pwd)/workspace:/home/dev/ws:rw" \
   -v /dev:/dev \

@@ -45,6 +45,13 @@ services:
     environment:
       - DISPLAY=${DISPLAY}
       - QT_X11_NO_MITSHM=1
+      # Passed through from your shell (or .env) only when set; otherwise the
+      # ROS defaults apply. With host networking every ROS 2 node on the LAN
+      # in the same domain (default 0) can see and command yours -- pick a
+      # domain per developer/vehicle (see README "ROS 2 networking").
+      - ROS_DOMAIN_ID
+      - ROS_LOCALHOST_ONLY
+      - RMW_IMPLEMENTATION
     volumes:
       - ./workspace:/home/dev/ws:rw
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
