@@ -93,10 +93,15 @@ COPY common/create-user.sh /tmp/create-user.sh
 # sets the child's environment without going through bash's assignment
 # syntax at all, so create-user.sh (itself bash, which does inherit env UID
 # into its own read-only $UID at startup) still sees the intended value.
+#
+# rosdep keeps its cache per user (~/.ros/rosdep), and `rosdep update` above
+# ran as root, so `dev` gets a copy: otherwise every rosdep command as `dev`
+# fails with "your rosdep installation has not been initialized yet".
 RUN chmod +x /tmp/create-user.sh \
     && env DEV_USER=dev UID=${HOST_UID} GID=${HOST_GID} /tmp/create-user.sh \
     && rm /tmp/create-user.sh \
-    && mkdir -p ${WORKSPACE_DIR}/src ${OVERLAY_WS}/src \
+    && mkdir -p ${WORKSPACE_DIR}/src ${OVERLAY_WS}/src /home/dev/.ros \
+    && cp -r /root/.ros/rosdep /home/dev/.ros/rosdep \
     && chown -R ${HOST_UID}:${HOST_GID} /home/dev ${OVERLAY_WS}
 
 # --- Layer: Ceres Solver 2.1.0, built from source (VINS-Fusion dependency) -
