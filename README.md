@@ -22,6 +22,9 @@ GPU.
 - [Features](#features)
 - [Prerequisites](#prerequisites)
 - [Quick start](#quick-start)
+- [Building your workspace](#building-your-workspace)
+- [GUI apps (rviz2, Gazebo)](#gui-apps-rviz2-gazebo)
+- [ROS 2 networking](#ros-2-networking)
 - [VS Code](#vs-code)
 - [Connecting a CubeOrangePlus](#connecting-a-cubeorangeplus-or-any-ardupilot-flight-controller)
 - [GPU support](#gpu-support)
@@ -54,13 +57,29 @@ GPU.
 
 ## Prerequisites
 
-- Docker Engine ([install guide](https://docs.docker.com/engine/install/))
-- Docker Compose v2 (bundled with recent Docker Engine installs), if you
-  prefer Compose over `scripts/*.sh`
+- **Docker Engine** (`docker-ce`, [install
+  guide](https://docs.docker.com/engine/install/ubuntu/)) with the Compose
+  v2 plugin, **2.24 or newer** (`docker compose version`). Not Docker
+  Desktop, the `docker` snap or rootless Docker: they run containers in a
+  VM, a sandbox or a user namespace, which breaks the `/dev` passthrough
+  (serial ports, cameras, GPU), the X11 socket mount, host networking
+  and/or the UID mapping this repo relies on.
+- **Your user in the `docker` group**: `sudo usermod -aG docker $USER`,
+  then log out and back in, and check with `docker ps`. Don't run the
+  scripts with `sudo` instead: the image maps *your* UID/GID onto its `dev`
+  user, and `scripts/build.sh` refuses to run as root.
+- **Disk and RAM**: about 10 GB for the CPU image (the GPU image adds about
+  5 GB of CUDA base) plus build cache while building; `docker builder prune`
+  reclaims the cache afterwards. Each parallel compile job can use 1-2 GB of
+  RAM, so `scripts/build.sh` runs one job per 3 GiB of RAM (override with
+  `--jobs N`).
+- For GUI apps, an X11 or Wayland desktop session (Wayland apps run through
+  Xwayland) and `xhost` (`x11-xserver-utils`, installed on Ubuntu desktops
+  by default).
 - **Optional**, only for GPU acceleration of the RL stack: an NVIDIA GPU +
   driver, and the [NVIDIA Container
-  Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
-  — see [GPU support](#gpu-support)
+  Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html);
+  see [GPU support](#gpu-support)
 
 ## Quick start
 
@@ -74,8 +93,19 @@ Or via Compose (works on any PC as-is — CPU-only, integrated GPU, or a
 discrete GPU you haven't wired up yet):
 
 ```bash
-docker compose up --build
+./scripts/setup-env.sh           # once per clone: your UID/GID + device gids -> .env
+docker compose up -d --build     # build if needed, start in the background
+docker compose exec drone bash   # a shell in it (repeat for more shells)
+docker compose down              # stop and remove it
 ```
+
+`docker-compose.yml` refuses to start without the `.env` that
+`scripts/setup-env.sh` writes (`scripts/build.sh` and the VS Code dev
+container also write it): Compose can't look up your UID itself, and
+guessing 1000 left `./workspace` unwritable for everyone else. Use `up -d`
+plus `exec`: a foreground `docker compose up` shows the container's output
+but doesn't pass your keyboard through, so commands typed there never
+reach the shell.
 
 Neither path requires an NVIDIA GPU or the NVIDIA Container Toolkit — both
 degrade to a CPU-only container automatically. See [GPU
@@ -100,6 +130,60 @@ its `PATH`. Run one-off commands through the entrypoint instead:
 docker exec ros2-docker-humble-drone /entrypoint.sh ros2 topic list
 ```
 
+## Building your workspace
+
+`./workspace` on the host is `~/ws` (`/home/dev/ws`) in the container,
+owned by your UID on both sides. It ships with two sample packages,
+`minimal_pkg` (C++) and `minimal_py_pkg` (Python). Inside the container:
+
+```bash
+cd ~/ws
+sudo apt-get update                                   # the image ships without apt lists
+rosdep install --from-paths src --ignore-src -y       # your packages' system deps
+colcon build --symlink-install
+ros2 run minimal_py_pkg minimal_py_node               # in a new shell, or after: source install/setup.bash
+```
+
+## GUI apps (rviz2, Gazebo)
+
+`scripts/run.sh`, Compose and the dev container all pass `DISPLAY` and the
+X11 socket through. The container's `dev` user has your UID, so the X
+server only has to accept your own user: `scripts/run.sh` and the dev
+container run `xhost +SI:localuser:$USER`, which stock Ubuntu desktops
+(Xorg, and GNOME's Xwayland on Wayland) already allow, so it's usually a
+no-op. With plain Compose, run that once per login if GUI apps report
+"Authorization required". Don't use `xhost +local:` / `+local:docker`: it
+opens your display to every local process of every user and container.
+
+- `rviz2` works as usual.
+- Gazebo is **Fortress**, whose CLI is `ign gazebo` (e.g. `ign gazebo
+  shapes.sdf`). `gz sim` is the newer Gazebo's command and isn't installed.
+- Hardware rendering: GPU device nodes (`/dev/dri`) and the host's
+  `video`/`render` groups are passed through on every path, so Intel/AMD
+  GPUs work out of the box. NVIDIA needs the [GPU path](#gpu-support),
+  which also asks the NVIDIA Container Toolkit for the driver's OpenGL
+  libraries (`NVIDIA_DRIVER_CAPABILITIES` includes `graphics,display`).
+  Without either, rviz2/Gazebo fall back to slow software rendering.
+
+## ROS 2 networking
+
+The container uses the host's network, so its ROS 2 nodes talk to every
+other ROS 2 node on your LAN that uses the same `ROS_DOMAIN_ID` - by
+default all of them, domain 0. On a shared lab network that means a
+teammate's setpoint publisher or RL policy can reach **your** MAVROS and
+real flight controller, and theirs yours. Give each developer/vehicle its
+own domain (0-101):
+
+```bash
+export ROS_DOMAIN_ID=17     # in your host shell before scripts/run.sh / docker compose up
+echo ROS_DOMAIN_ID=17 >> .env   # or once, for Compose and the dev container
+```
+
+`ROS_DOMAIN_ID`, `ROS_LOCALHOST_ONLY` (set to `1` to keep traffic on this
+machine) and `RMW_IMPLEMENTATION` are passed into the container when set
+on the host (or in `.env` for Compose), and left at ROS's defaults
+otherwise. Recreate the container after changing them.
+
 ## VS Code
 
 VS Code runs **on the host** and talks to a VS Code Server **inside the
@@ -109,18 +193,11 @@ extension. Do not install VS Code (the `code` apt package) inside the
 container: it is a GUI app, and even when it starts it is a second,
 separate VS Code that has none of your extensions or settings.
 
-**Host prerequisites** (once per machine):
-
-- Docker Engine with Compose v2 **2.24 or newer** (`docker compose
-  version`). Use Docker Engine (`docker-ce`), not Docker Desktop or the
-  `docker` snap: they run containers inside a VM or sandbox, which breaks
-  the `/dev` passthrough, the X11 socket mount and (depending on version)
-  host networking that this repo relies on.
-- Your user in the `docker` group, so VS Code can run `docker` without
-  sudo: `sudo usermod -aG docker $USER`, then log out and back in. Check
-  with `docker ps`.
-- [VS Code](https://code.visualstudio.com/) (snap, `.deb` or tarball) and
-  the Dev Containers extension (`ms-vscode-remote.remote-containers`).
+**Host prerequisites** (once per machine): everything in
+[Prerequisites](#prerequisites) (the `docker` group matters here: VS Code
+runs `docker` as you, without sudo), plus [VS
+Code](https://code.visualstudio.com/) (snap, `.deb` or tarball) and the Dev
+Containers extension (`ms-vscode-remote.remote-containers`).
 
 ### Open the repo in a container (recommended)
 
@@ -135,13 +212,15 @@ GPU)** if `nvidia-smi` and the [NVIDIA Container
 Toolkit](#gpu-support) work on your host. Behind the scenes:
 
 - `.devcontainer/initialize.sh` runs on the host: it writes your UID/GID
-  and the host's `dialout` gid to a gitignored `.env`, runs `xhost
-  +local:docker` for X11, and, if `ros2-docker:humble-drone` doesn't exist
-  yet, builds it with `scripts/build.sh` (one-time, long). No second image
-  is built: the dev container reuses the `drone` service from
-  `docker-compose.yml`, so it has the same image and runtime flags (host
-  network/IPC, X11, `/dev`, `dialout`) as `docker compose up` and
-  `scripts/run.sh`.
+  and the host's `dialout`/`video`/`render` gids to a gitignored `.env`
+  (same as `scripts/setup-env.sh`), runs `xhost +SI:localuser:$USER` for
+  X11 (see [GUI apps](#gui-apps-rviz2-gazebo)), and, if the image doesn't
+  exist yet, builds it with `scripts/build.sh` (one-time, long; the GPU
+  config uses `ros2-docker:humble-drone-gpu`). No second image is built:
+  the dev container reuses the `drone` service from `docker-compose.yml`,
+  so it has the same image and runtime flags (host network/IPC, X11,
+  `/dev` and device groups, tini as PID 1, ROS networking variables) as
+  `docker compose up` and `scripts/run.sh`.
 - The container is `ros2-docker-humble-drone-devcontainer` (or `...-gpu`),
   separate from the `scripts/run.sh` / Compose one, so both can run at
   once. Closing VS Code stops it; reopening restarts it.
@@ -219,14 +298,14 @@ instead.
 - **GUI apps (rviz2, Gazebo) can't open a display**: check that
   `echo $DISPLAY` inside the container isn't empty. VS Code passes along the
   `DISPLAY` it was started with, so start VS Code from your desktop session,
-  not from a bare SSH shell. `initialize.sh` runs `xhost +local:docker`
-  every time the container is opened; if it warns that `xhost` is missing,
-  install `x11-xserver-utils` on the host.
+  not from a bare SSH shell. `initialize.sh` runs `xhost
+  +SI:localuser:$USER` every time the container is opened; if it warns that
+  `xhost` is missing, install `x11-xserver-utils` on the host.
 - **Files in `workspace/` owned by the wrong user**: images built by
   `scripts/build.sh` already use your UID. If yours wasn't, Dev Containers
   maps `dev` to your UID on its own, in the thin `vsc-...-uid` image it
   always layers on top. For Compose, `.env` now holds the right
-  `UID`/`GID`.
+  `HOST_UID`/`HOST_GID`.
 - **Start over**: **Dev Containers: Rebuild Container**, or remove
   everything VS Code-specific with `docker rm -f
   ros2-docker-humble-drone-devcontainer` and `docker volume rm
@@ -257,13 +336,25 @@ host enumerates is visible inside. Visible isn't enough on its own: the
 container's device cgroup blocks opening bind-mounted device nodes (EPERM,
 even as root), so both also allow character-device majors 166
 (`/dev/ttyACM*`) and 188 (`/dev/ttyUSB*`) via `--device-cgroup-rule` /
-`device_cgroup_rules:`. This also covers boards plugged in after the
+`device_cgroup_rules:` (plus 81 for `/dev/video*` cameras and 226 for
+`/dev/dri` GPUs). This also covers boards plugged in after the
 container started. Serial devices are normally owned
 `root:dialout` on the host; both `scripts/run.sh` and `docker-compose.yml`
-add the container to that gid automatically (`--group-add`/`group_add:`, gid
-auto-detected via `getent group dialout`, override with the `DIALOUT_GID`
-environment variable for Compose if your host's gid isn't 20) so the
-non-root `dev` user can open them without extra steps.
+add the container to that gid (`--group-add`/`group_add:`) so the
+non-root `dev` user can open them without extra steps. `scripts/run.sh`
+looks the gid up with `getent group dialout` every time; Compose reads
+`DIALOUT_GID` from the `.env` that `scripts/setup-env.sh` writes.
+
+Tips:
+
+- Prefer the stable `/dev/serial/by-id/usb-...` path over `/dev/ttyACM0`:
+  the number can change when the board reboots (e.g. after a parameter or
+  firmware change) or another device is plugged in.
+- Ubuntu's ModemManager probes new `/dev/ttyACM*` devices for a few
+  seconds after they appear, which can stall MAVROS's first connection;
+  remove it (`sudo apt remove modemmanager`) if you don't use a modem.
+- On Ubuntu 22.04, `brltty` claims some USB-serial adapters (CH340/CH341)
+  so `/dev/ttyUSB*` never appears; `sudo apt remove brltty` fixes it.
 
 > **PX4 addon**: if built with `ENABLE_PX4=on`, the equivalent commands are
 > `ros2 launch mavros px4.launch fcu_url:="udp://:14540@127.0.0.1:14557"`
@@ -308,8 +399,14 @@ Once that's done:
 ```bash
 ./scripts/build.sh --gpu on && ./scripts/run.sh   # both auto-detect; explicit here for clarity
 # or:
-GPU=on docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml exec drone bash
 ```
+
+Both build the GPU variant as `ros2-docker:humble-drone-gpu` (the overlay
+sets `GPU=on` and that tag itself), and both request the driver's OpenGL
+libraries as well as CUDA (`NVIDIA_DRIVER_CAPABILITIES=compute,utility,graphics,display`),
+so rviz2/Gazebo render on the NVIDIA GPU too.
 
 `docker-compose.gpu.yml` is a separate overlay file, not a flag in the base
 `docker-compose.yml` — Compose has no way to make a GPU device reservation
@@ -336,21 +433,27 @@ Build args (`docker build --build-arg ...`, or `scripts/build.sh` flags):
 |---|---|---|
 | `GPU` | `off` | `on` selects the CUDA 12.4.1/cuDNN base + installs PyTorch's `cu124` wheels; `off` uses `osrf/ros:humble-desktop` + CPU-only PyTorch wheels (`download.pytorch.org/whl/cpu`, not PyPI's default CUDA-bundled Linux wheel) |
 | `ENABLE_PX4` | `off` | *(PX4 addon)* `on` adds `px4_msgs`/`px4_ros_com` + the Micro XRCE-DDS Agent alongside MAVROS |
+| `BUILD_JOBS` | `4` | parallel compile jobs for Ceres, the Micro XRCE-DDS Agent and the overlay (built one package at a time). Each can take 1-2 GB of RAM; `scripts/build.sh` defaults to one per 3 GiB of RAM, capped at the CPU count |
 | `HOST_UID` / `HOST_GID` | `1000` / `1000` | mapped onto the in-container `dev` user so bind-mounted `workspace/` keeps host ownership. Named `HOST_*` rather than `UID`/`GID` deliberately: Docker exports every declared `ARG` as an env var for later `RUN` instructions, and a bare `UID`/`GID` env var silently shadows bash's readonly `$UID`/`$GID` builtins — which broke the MAVROS GeographicLib installer's root check when this was tried |
 
 MAVROS ships unconditionally (it's the default, primary autopilot bridge for
 this branch); PX4 is an additive addon, not a replacement, so both can be
 present at once if `ENABLE_PX4=on`.
 
-`scripts/build.sh` flags: `--gpu on|off`, `--px4`, `--tag TAG`. Compose
-equivalents: `GPU`, `ENABLE_PX4`, `UID`, `GID` environment variables.
+`scripts/build.sh` flags: `--gpu on|off`, `--px4`, `--jobs N`, `--tag TAG`.
+Compose equivalents: `ENABLE_PX4` and `BUILD_JOBS` (default 4) from the
+environment or `.env`; `GPU=on` comes from `docker-compose.gpu.yml`.
+`HOST_UID`, `HOST_GID`, `DIALOUT_GID`, `VIDEO_GID` and `RENDER_GID` come
+from the `.env` written by `scripts/setup-env.sh`, which keeps any other
+lines you add there.
 
 Without `--tag`, `build.sh` tags the image `ros2-docker:humble-drone-gpu` or
 `-cpu` (matching whichever `GPU` value was used) so building one variant
 doesn't overwrite the other on disk, then also re-points the generic
 `ros2-docker:humble-drone` tag at it — that generic tag is what
 `docker-compose.yml` and `scripts/run.sh` run, i.e. "whichever variant you
-built most recently."
+built most recently." (`docker-compose.gpu.yml` and the GPU dev container
+run `ros2-docker:humble-drone-gpu` directly.)
 
 ## PX4 (optional addon)
 
@@ -393,7 +496,7 @@ and `nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04`).
 ```
 Dockerfile               multi-stage: base-off / base-on (GPU) -> base -> image
 docker-compose.yml        hardware-agnostic base: X11, /dev, dialout group, workspace bind-mount
-docker-compose.gpu.yml    optional overlay: /dev/dri + NVIDIA GPU reservation (needs the toolkit)
+docker-compose.gpu.yml    optional overlay: GPU build + NVIDIA GPU reservation (needs the toolkit)
 LICENSE                   Apache-2.0
 common/                   stanzas shared with main (re-sync from there)
   ros-env.sh               sources ROS2 -> overlay ws (/opt/overlay_ws) -> user ws;
@@ -404,19 +507,22 @@ common/                   stanzas shared with main (re-sync from there)
   devcontainer.json       VS Code dev container (CPU / any host), reuses the compose `drone` service
   gpu/devcontainer.json   same, plus docker-compose.gpu.yml
   docker-compose.devcontainer.yml  dev-container-only compose overrides (no build, vscode-server volume)
-  initialize.sh           host-side prep: .env with UID/GID/DIALOUT_GID, xhost, build image if missing
+  initialize.sh           host-side prep: .env (as setup-env.sh), xhost, build image if missing
 deps/
   apt-packages.txt        system + Ceres build deps
-  rosdep.yaml              custom rosdep keys (empty -- none needed yet)
+  rosdep.yaml              placeholder for custom rosdep keys (empty, not wired into the build yet)
   requirements.txt         pinned RL/Python deps
 scripts/
-  build.sh                builds the image (GPU/HOST_UID/HOST_GID auto-detected)
-  run.sh                   runs it with the right GPU/X11/device/dialout-group flags
+  setup-env.sh            writes host UID/GID + device gids to .env for Compose
+  build.sh                builds the image (GPU/HOST_UID/HOST_GID/BUILD_JOBS auto-detected)
+  run.sh                   runs it with the right GPU/X11/device/group/ROS-network flags
   enter.sh                 execs a shell into the running container
 workspace/src/            your colcon workspace (bind-mounted at runtime);
-                          ships with `minimal_pkg`, a trivial ament_cmake
-                          package CI and scripts/build.sh use as a smoke test
+                          ships with `minimal_pkg` (ament_cmake) and
+                          `minimal_py_pkg` (ament_python), trivial packages
+                          CI builds as a smoke test
 workspace/.vscode/        in-container VS Code settings, tasks, debug configs
+.hadolint.yaml, .shellcheckrc  lint config shared by CI and local runs
 ```
 
 `/opt/overlay_ws` (inside the image) holds the prebuilt VINS-Fusion [+ PX4
@@ -426,8 +532,9 @@ baked in at build time.
 
 ## Testing against a SITL (manual, not run in CI)
 
-CI's smoke test only checks that MAVROS/VINS packages are importable and
-that a minimal package colcon-builds — it does not spin up a simulator or
+CI's smoke test only checks that MAVROS/VINS packages are importable, that
+the Python RL stack passes `pip check` and imports cleanly, and that the
+sample C++ and Python packages colcon-build - it does not spin up a simulator or
 require real flight-controller hardware. It runs those checks twice: through
 the entrypoint, and from a fresh interactive shell that bypasses it (what
 `docker exec`, `scripts/enter.sh` and VS Code terminals get), with no manual
@@ -455,6 +562,8 @@ This repo uses [Conventional Commits](https://www.conventionalcommits.org/)
 (`feat:`, `fix:`, `build:`, `ci:`, `docs:`, ...). Before opening a PR:
 
 - Run `./scripts/build.sh` locally and confirm it builds clean.
+- Lint like CI does: `hadolint Dockerfile` and `shellcheck $(git ls-files
+  '*.sh')` (both pick up the repo's `.hadolint.yaml` / `.shellcheckrc`).
 - If you touch `common/create-user.sh` or anything else shared with `main`,
   re-sync the change into the other branches (`humble/ground`,
   `jazzy/ground`) per the comments in those files.
