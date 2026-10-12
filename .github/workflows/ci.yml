@@ -18,10 +18,17 @@ jobs:
       # fail if the entrypoint stops providing the ROS environment. `ros2 pkg
       # prefix`, not `ros2 pkg list | grep -q`, which closes the pipe early
       # and makes ros2 log a BrokenPipeError.
+      #
+      # The workspace build covers both minimal_pkg (ament_cmake) and
+      # minimal_py_pkg (ament_python, which a pip-installed setuptools >= 80
+      # breaks). `pip check` catches resolver conflicts in the RL stack, and
+      # scipy must import without NumPy-version warnings.
       smoke-test-cmd: >-
         ros2 --help > /dev/null &&
         ros2 pkg prefix vins > /dev/null &&
         ros2 pkg prefix mavros > /dev/null &&
+        python3 -m pip check &&
+        python3 -W error::UserWarning -c 'import scipy, torch, stable_baselines3, gymnasium' &&
         colcon build --symlink-install --base-paths /home/dev/ws
       # Regression test for GitHub issue #1: a fresh interactive shell that
       # bypasses the entrypoint (what `docker exec -it`, scripts/enter.sh and
@@ -34,4 +41,5 @@ jobs:
         ros2 pkg prefix mavros > /dev/null &&
         cd /home/dev/ws &&
         colcon build --symlink-install &&
-        bash -ic 'ros2 pkg prefix minimal_pkg'
+        bash -ic 'ros2 pkg prefix minimal_pkg && ros2 run minimal_py_pkg minimal_py_node'
+
