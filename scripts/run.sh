@@ -62,9 +62,9 @@ log "Running ${TAG} as ${NAME}"
 # With --network host every ROS 2 node on the LAN in the same domain
 # (default 0) can see and command yours -- see README "ROS 2 networking".
 #
-# --init: tini as PID 1 forwards SIGTERM (an interactive bash as PID 1
-# ignores it, so `docker stop` always waited 10 s, then SIGKILLed) and reaps
-# processes orphaned by `ros2 launch`.
+# --init: tini as PID 1 reaps processes orphaned by `ros2 launch` and
+# forwards signals (the image's STOPSIGNAL SIGHUP is what makes the
+# interactive bash exit promptly on `docker stop`).
 docker run -it --rm --init \
   --name "${NAME}" \
   --network host \

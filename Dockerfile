@@ -277,3 +277,8 @@ WORKDIR ${WORKSPACE_DIR}
 
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["bash"]
+# The default CMD is an interactive bash, which ignores SIGTERM, so `docker
+# stop`/`docker compose down` always waited the full 10 s and then
+# SIGKILLed the container. SIGHUP ("terminal closed") makes it exit at once,
+# taking its jobs with it, with or without --init.
+STOPSIGNAL SIGHUP
