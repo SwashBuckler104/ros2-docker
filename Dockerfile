@@ -172,15 +172,23 @@ RUN source /opt/ros/${ROS_DISTRO}/setup.bash \
     && chown -R ${HOST_UID}:${HOST_GID} ${OVERLAY_WS}
 
 # --- Layer: Python RL stack (own layer, own cache line) -------------------
+# torch/torchvision go in FIRST, from the CUDA-matched (cu124) or CPU wheel
+# index, and everything else is then resolved against them with
+# requirements.txt itself as a constraints file (-c). The other order let pip
+# satisfy stable-baselines3's unpinned `torch` requirement from PyPI's
+# newest CUDA build, whose dependencies (~3.4 GB of nvidia-*/triton wheels,
+# and setuptools 83) stayed behind after the pinned torch replaced it. That
+# setuptools shadowed apt's 59.6 and broke `colcon build` of every
+# ament_python package (setuptools<80 in requirements.txt now guards it).
+# `pip check` fails the build on any conflict the resolver let through.
 COPY deps/requirements.txt /tmp/requirements.txt
-RUN python3 -m pip install --no-cache-dir -r <(grep -vE '^(torch|torchvision)==' /tmp/requirements.txt) \
-    && if [ "${GPU}" = "on" ]; then \
-      python3 -m pip install --no-cache-dir torch==2.5.1 torchvision==0.20.1 \
-        --index-url https://download.pytorch.org/whl/cu124 ; \
-    else \
-      python3 -m pip install --no-cache-dir torch==2.5.1 torchvision==0.20.1 \
-        --index-url https://download.pytorch.org/whl/cpu ; \
-    fi \
+RUN if [ "${GPU}" = "on" ]; then TORCH_INDEX=cu124; else TORCH_INDEX=cpu; fi \
+    && python3 -m pip install --no-cache-dir \
+      --index-url "https://download.pytorch.org/whl/${TORCH_INDEX}" \
+      -r <(grep -E '^(torch|torchvision)==' /tmp/requirements.txt) \
+    && python3 -m pip install --no-cache-dir -c /tmp/requirements.txt \
+      -r <(grep -vE '^(torch|torchvision)==' /tmp/requirements.txt) \
+    && python3 -m pip check \
     && rm /tmp/requirements.txt
 
 # --- Layer: VS Code Dev Containers support (.devcontainer/) ---------------

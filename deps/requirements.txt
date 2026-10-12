@@ -2,9 +2,18 @@
 # torch/torchvision are installed separately in the Dockerfile from the
 # CUDA-matched wheel index (cu124) when GPU=on, or the default CPU index
 # when GPU=off -- pins live here as the single source of truth for both.
-numpy==1.26.4
+# The whole file is also passed to pip as a constraints file, so nothing
+# else can pull in a different torch.
+#
+# numpy 1.24.x, not 1.26: apt's python3-scipy 1.8 (pulled in by ROS) warns
+# on every import with numpy >= 1.25.
+numpy==1.24.4
 torch==2.5.1
 torchvision==0.20.1
 gymnasium==0.29.1
 stable-baselines3==2.4.0
 tensorboard==2.18.0
+# Not a feature dependency, a guard: keeps pip from installing a setuptools
+# that shadows apt's 59.6. setuptools >= 80 breaks colcon's ament_python
+# builds (canonicalize_version() TypeError) and colcon-core requires < 80.
+setuptools<80
