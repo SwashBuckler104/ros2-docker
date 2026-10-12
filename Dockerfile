@@ -188,9 +188,42 @@ RUN python3 -m pip install --no-cache-dir -r <(grep -vE '^(torch|torchvision)=='
 COPY workspace/src ${WORKSPACE_DIR}/src
 RUN chown -R ${HOST_UID}:${HOST_GID} ${WORKSPACE_DIR}
 
-# --- Entrypoint / X11 -------------------------------------------------------
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+# --- Entrypoint + ROS shell environment -------------------------------------
+# common/ros-env.sh is the one place the ROS environment is defined (ROS2
+# base -> ${OVERLAY_WS} -> ${WORKSPACE_DIR}, each via its setup.bash), and two
+# things source it: the entrypoint, for PID 1 and `docker run`/`docker
+# compose` commands, and /etc/bash.bashrc, for every interactive shell that
+# bypasses the entrypoint (`docker exec -it <c> bash`, scripts/enter.sh, VS
+# Code terminals). Before the bashrc hook those shells only inherited the
+# image ENV -- ROS_DISTRO=humble, but no `ros2` on PATH and no ament_cmake
+# for colcon to find (GitHub issue #1).
+#
+# Why /etc/bash.bashrc and not ~/.bashrc or /etc/profile.d:
+#   - bash reads it for every interactive non-login shell of any user (dev,
+#     `docker exec -u root`, an arbitrary `--user UID` with no home dir), and
+#     interactive login shells reach it via /etc/profile, which covers the VS
+#     Code server's userEnvProbe. Ubuntu's copy returns early for
+#     non-interactive shells, so appending at the end leaves scripts and
+#     `bash -c` untouched.
+#   - ~/.bashrc is per-user (misses root and other UIDs) and is lost if the
+#     home directory is bind-mounted or replaced by someone's dotfiles.
+#   - /etc/profile.d is only read by login shells, and `docker exec ... bash`
+#     is not one.
+# A non-interactive `docker exec <c> ros2 ...` reads no rc file at all and
+# can't be fixed from inside the image; run it as `docker exec <c>
+# /entrypoint.sh ros2 ...` instead (see README).
+#
+# Deliberately the last layers, so editing these files never invalidates the
+# heavy Ceres/overlay/PyTorch layers above.
+COPY common/ros-env.sh /etc/ros2-docker/ros-env.sh
+COPY common/ros-entrypoint.sh /entrypoint.sh
+RUN chmod 0644 /etc/ros2-docker/ros-env.sh \
+    && chmod 0755 /entrypoint.sh \
+    && printf '%s\n' '' \
+      '# ros2-docker: ROS env for interactive shells that bypass /entrypoint.sh' \
+      '# (docker exec, VS Code terminals) -- see /etc/ros2-docker/ros-env.sh.' \
+      'if [ -f /etc/ros2-docker/ros-env.sh ]; then . /etc/ros2-docker/ros-env.sh; fi' \
+      >> /etc/bash.bashrc
 
 USER dev
 WORKDIR ${WORKSPACE_DIR}

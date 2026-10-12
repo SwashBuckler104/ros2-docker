@@ -14,6 +14,14 @@ on:
         description: Command run inside the built image to smoke-test it
         required: true
         type: string
+      interactive-shell-test-cmd:
+        description: >-
+          Optional command run in a fresh interactive bash with the image
+          entrypoint bypassed, i.e. the environment `docker exec -it <c> bash`
+          gets (image ENV + bashrc only). Skipped when empty.
+        required: false
+        type: string
+        default: ""
       dockerfile:
         description: Path to the Dockerfile
         required: false
@@ -55,3 +63,12 @@ jobs:
 
       - name: Smoke test
         run: docker run --rm "${{ inputs.image-tag }}" bash -lc "${{ inputs.smoke-test-cmd }}"
+
+      # The smoke test above goes through the entrypoint, so it can't catch an
+      # image whose ROS environment only exists in PID 1. Shells started with
+      # `docker exec` (scripts/enter.sh, VS Code terminals) never run the
+      # entrypoint; `--entrypoint bash ... -ic` reproduces exactly that, and
+      # `-t` gives it a pty like `docker exec -it`.
+      - name: Interactive shell test (entrypoint bypassed)
+        if: inputs.interactive-shell-test-cmd != ''
+        run: docker run --rm -t --entrypoint bash "${{ inputs.image-tag }}" -ic "${{ inputs.interactive-shell-test-cmd }}"
