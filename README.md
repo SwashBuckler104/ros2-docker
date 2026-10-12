@@ -68,7 +68,7 @@ GPU.
   then log out and back in, and check with `docker ps`. Don't run the
   scripts with `sudo` instead: the image maps *your* UID/GID onto its `dev`
   user, and `scripts/build.sh` refuses to run as root.
-- **Disk and RAM**: about 10 GB for the CPU image (the GPU image adds about
+- **Disk and RAM**: about 8 GB for the CPU image (the GPU image adds about
   5 GB of CUDA base) plus build cache while building; `docker builder prune`
   reclaims the cache afterwards. Each parallel compile job can use 1-2 GB of
   RAM, so `scripts/build.sh` runs one job per 3 GiB of RAM (override with

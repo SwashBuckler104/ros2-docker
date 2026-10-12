@@ -14,7 +14,7 @@ services:
     # second one: the Dev Containers CLI runs `docker compose build` whenever
     # the service has a `build:` section, and with different build args
     # (e.g. GPU auto-detected by build.sh but not by Compose) that is a full
-    # rebuild of a ~13 GB image. initialize.sh builds it via build.sh if it is
+    # rebuild of a ~8 GB image. initialize.sh builds it via build.sh if it is
     # missing. `!reset` needs Docker Compose >= 2.24.
     build: !reset null
     pull_policy: never
