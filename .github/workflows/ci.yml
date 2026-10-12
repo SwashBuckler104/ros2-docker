@@ -14,10 +14,24 @@ jobs:
       build-args: |
         GPU=off
         ENABLE_PX4=off
+      # Runs through the entrypoint. No manual `source` on purpose: this must
+      # fail if the entrypoint stops providing the ROS environment. `ros2 pkg
+      # prefix`, not `ros2 pkg list | grep -q`, which closes the pipe early
+      # and makes ros2 log a BrokenPipeError.
       smoke-test-cmd: >-
-        source /opt/ros/humble/setup.bash &&
-        ros2 --help &&
-        source /opt/overlay_ws/install/setup.bash &&
-        ros2 pkg list | grep -qx vins &&
-        ros2 pkg list | grep -q mavros &&
+        ros2 --help > /dev/null &&
+        ros2 pkg prefix vins > /dev/null &&
+        ros2 pkg prefix mavros > /dev/null &&
         colcon build --symlink-install --base-paths /home/dev/ws
+      # Regression test for GitHub issue #1: a fresh interactive shell that
+      # bypasses the entrypoint (what `docker exec -it`, scripts/enter.sh and
+      # VS Code terminals get) must have ROS with no manual sourcing, must
+      # colcon-build the sample workspace, and a new shell opened after the
+      # build must pick up the workspace overlay.
+      interactive-shell-test-cmd: >-
+        command -v ros2 &&
+        ros2 pkg prefix vins > /dev/null &&
+        ros2 pkg prefix mavros > /dev/null &&
+        cd /home/dev/ws &&
+        colcon build --symlink-install &&
+        bash -ic 'ros2 pkg prefix minimal_pkg'
