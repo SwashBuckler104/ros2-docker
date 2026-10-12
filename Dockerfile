@@ -159,8 +159,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # --- Layer: resolve remaining overlay deps via rosdep from package.xml ----
+# No -r: an unresolvable or uninstallable key must fail here, not surface
+# later as a confusing CMake error (or not at all).
 RUN apt-get update \
-    && rosdep install --from-paths ${OVERLAY_WS}/src --ignore-src -r -y \
+    && rosdep install --from-paths ${OVERLAY_WS}/src --ignore-src -y \
     && rm -rf /var/lib/apt/lists/*
 
 # --- Layer: build the overlay workspace (VINS [+ PX4 bridge]) -------------
