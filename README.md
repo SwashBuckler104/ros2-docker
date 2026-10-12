@@ -80,6 +80,25 @@ Neither path requires an NVIDIA GPU or the NVIDIA Container Toolkit — both
 degrade to a CPU-only container automatically. See [GPU
 support](#gpu-support) for what it takes to turn CUDA on.
 
+Every interactive shell in the container comes up with ROS already sourced:
+the one `scripts/run.sh`/`docker compose up` starts, `scripts/enter.sh` or
+`docker exec -it ros2-docker-humble-drone bash`, `docker exec -u root`, and
+VS Code terminals alike. The environment is defined in one place,
+`/etc/ros2-docker/ros-env.sh` (from `common/ros-env.sh`), which sources ROS2
+Humble, then the prebuilt overlay (`/opt/overlay_ws`), then your workspace
+(`~/ws/install`) once it has been built. Both the entrypoint and
+`/etc/bash.bashrc` source it, so shells that never run the entrypoint get
+the same environment. After `colcon build`, new shells pick up your
+packages automatically; in a shell that was already open, run `source
+/etc/ros2-docker/ros-env.sh` (or `source install/setup.bash` as usual).
+
+A non-interactive `docker exec` reads no shell rc file, so `ros2` isn't on
+its `PATH`. Run one-off commands through the entrypoint instead:
+
+```bash
+docker exec ros2-docker-humble-drone /entrypoint.sh ros2 topic list
+```
+
 ## Connecting a CubeOrangePlus (or any ArduPilot flight controller)
 
 MAVROS ships unconditionally in this image — `ros-humble-mavros` +
@@ -237,8 +256,12 @@ and `nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04`).
 Dockerfile               multi-stage: base-off / base-on (GPU) -> base -> image
 docker-compose.yml        hardware-agnostic base: X11, /dev, dialout group, workspace bind-mount
 docker-compose.gpu.yml    optional overlay: /dev/dri + NVIDIA GPU reservation (needs the toolkit)
-entrypoint.sh             sources ROS2 -> overlay ws (/opt/overlay_ws) -> user ws
 LICENSE                   Apache-2.0
+common/                   stanzas shared with main (re-sync from there)
+  ros-env.sh               sources ROS2 -> overlay ws (/opt/overlay_ws) -> user ws;
+                          used by the entrypoint and every interactive shell
+  ros-entrypoint.sh        image entrypoint (/entrypoint.sh): sources ros-env.sh, execs CMD
+  create-user.sh           creates the non-root, UID/GID-mapped `dev` user
 deps/
   apt-packages.txt        system + Ceres build deps
   rosdep.yaml              custom rosdep keys (empty -- none needed yet)
@@ -261,7 +284,10 @@ baked in at build time.
 
 CI's smoke test only checks that MAVROS/VINS packages are importable and
 that a minimal package colcon-builds — it does not spin up a simulator or
-require real flight-controller hardware. For ArduPilot SITL or a real
+require real flight-controller hardware. It runs those checks twice: through
+the entrypoint, and from a fresh interactive shell that bypasses it (what
+`docker exec`, `scripts/enter.sh` and VS Code terminals get), with no manual
+`source` in either. For ArduPilot SITL or a real
 CubeOrangePlus, see [Connecting a
 CubeOrangePlus](#connecting-a-cubeorangeplus-or-any-ardupilot-flight-controller);
 for PX4 SITL, see [PX4 (optional addon)](#px4-optional-addon).
