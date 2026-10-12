@@ -1,6 +1,6 @@
 {
   // Debuggers inherit the VS Code server's environment (ROS 2 + overlay +
-  // ~/ws/install, from ~/.bashrc). After building a new package, run
+  // ~/ws/install, via /etc/bash.bashrc). After building a new package, run
   // "Developer: Reload Window" if its libraries are not found.
   "version": "0.2.0",
   "inputs": [
@@ -29,7 +29,9 @@
       "program": "${workspaceFolder}/install/${input:package}/lib/${input:package}/${input:executable}",
       "processId": "${command:pickProcess}",
       "MIMode": "gdb",
-      "miDebuggerPath": "/usr/bin/gdb",
+      // Attaching needs root under the host's Yama ptrace_scope=1; see the
+      // script for why. Launching (above) doesn't, so it uses plain gdb.
+      "miDebuggerPath": "${workspaceFolder}/.vscode/sudo-gdb.sh",
       "setupCommands": [
         { "description": "Enable gdb pretty-printing", "text": "-enable-pretty-printing", "ignoreFailures": true }
       ]

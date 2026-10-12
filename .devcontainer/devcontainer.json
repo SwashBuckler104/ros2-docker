@@ -26,13 +26,14 @@
   "overrideCommand": true,
   "shutdownAction": "stopCompose",
 
-  // Lets gdb attach to running nodes and disable ASLR for launched ones.
+  // Lets gdb attach to running nodes (as root, via
+  // workspace/.vscode/sudo-gdb.sh) and disable ASLR for launched ones.
   "capAdd": ["SYS_PTRACE"],
   "securityOpt": ["seccomp=unconfined"],
 
   // VS Code takes the environment of its server, extensions, tasks and
-  // debuggers from a login interactive bash, i.e. from ~/.bashrc sourcing
-  // ROS 2 + /opt/overlay_ws + ~/ws/install.
+  // debuggers from a login interactive bash, i.e. from /etc/bash.bashrc
+  // sourcing ROS 2 + /opt/overlay_ws + ~/ws/install (common/ros-env.sh).
   "userEnvProbe": "loginInteractiveShell",
 
   // As `dev`, not root: the image's build-time `rosdep update` only filled

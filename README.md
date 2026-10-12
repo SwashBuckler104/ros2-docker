@@ -242,7 +242,10 @@ Inside the container window:
   `colcon: test`, `rosdep: install workspace dependencies`, `colcon: clean`.
 - **Run and Debug** has `C++: launch ROS 2 node (gdb)` (prompts for
   package and executable), `C++: attach to running node (gdb)`, and
-  `Python: current file`.
+  `Python: current file`. Attaching runs gdb as root through
+  `workspace/.vscode/sudo-gdb.sh`: Ubuntu's default `ptrace_scope=1` is
+  host-wide and blocks a non-root `dev` from attaching to a process it
+  didn't start, even with `SYS_PTRACE` added.
 - The settings live in `workspace/.vscode/` and use container paths only.
   Packages under `src/` that are their own git repos show up in Source
   Control. This repo itself (Dockerfile, scripts) isn't mounted in the
