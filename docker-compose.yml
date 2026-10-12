@@ -1,10 +1,11 @@
 services:
-  # UID/GID default to 1000 unless exported into the environment first, e.g.
-  # `UID=$(id -u) GID=$(id -g) docker compose up --build` -- bash does not
-  # export its builtin $UID/$GID automatically. Prefer scripts/build.sh,
-  # which does this detection for you. (Opening the repo in a VS Code dev
-  # container also records them, plus DIALOUT_GID, in a gitignored ./.env,
-  # which Compose reads automatically.)
+  # Host ids (HOST_UID/HOST_GID and the dialout/video/render gids) come from
+  # a gitignored ./.env that Compose reads automatically: run
+  # ./scripts/setup-env.sh once per clone (scripts/build.sh and the VS Code
+  # dev container do it for you). There are deliberately no defaults: bash
+  # and zsh don't export $UID/$GID, so a `${UID:-1000}` fallback silently
+  # built the image for UID 1000 and left ./workspace unwritable and X11
+  # refused for every other user.
   #
   # This base file is deliberately hardware-agnostic -- it works unmodified
   # on any PC (CPU-only, integrated GPU, or a discrete GPU you're not using
@@ -24,8 +25,8 @@ services:
       args:
         GPU: "${GPU:-off}"
         ENABLE_PX4: "${ENABLE_PX4:-off}"
-        HOST_UID: "${UID:-1000}"
-        HOST_GID: "${GID:-1000}"
+        HOST_UID: "${HOST_UID:?run ./scripts/setup-env.sh first (writes .env)}"
+        HOST_GID: "${HOST_GID:?run ./scripts/setup-env.sh first (writes .env)}"
         # Parallel compile jobs; each can take 1-2 GB of RAM. scripts/build.sh
         # sizes this from your RAM -- for Compose, set BUILD_JOBS in .env.
         BUILD_JOBS: "${BUILD_JOBS:-4}"
@@ -45,10 +46,9 @@ services:
       - /dev:/dev
     # Lets the non-root `dev` user open serial devices (e.g. a
     # CubeOrangePlus on /dev/ttyACM0), which are normally root:dialout 660
-    # on the host. Override DIALOUT_GID if your host's dialout group isn't
-    # gid 20 (check with `getent group dialout`).
+    # on the host. DIALOUT_GID is the host's gid, from .env.
     group_add:
-      - "${DIALOUT_GID:-20}"
+      - "${DIALOUT_GID:?run ./scripts/setup-env.sh first (writes .env)}"
     # The /dev bind-mount above only makes device nodes *visible*; the
     # container's device cgroup still refuses to open them (EPERM, even as
     # root) unless allowed here. 166 = USB CDC-ACM (/dev/ttyACM*, e.g. a

@@ -2,10 +2,9 @@
 # Host-side setup for the VS Code Dev Containers configs, run as their
 # "initializeCommand" on the HOST (as you, not root) before the container
 # is created or started:
-#   1. records host UID/GID/dialout gid in the repo's ./.env, which Compose
-#      reads automatically (bash does not export $UID/$GID, so
-#      ${UID:-1000} etc. in docker-compose.yml would otherwise fall back to
-#      the defaults);
+#   1. records host UID/GID and device-group gids in the repo's ./.env via
+#      write_host_env (same as scripts/setup-env.sh), which Compose reads
+#      automatically and docker-compose.yml requires;
 #   2. allows local X11 clients, same as scripts/run.sh;
 #   3. makes sure the ros2-docker:humble-drone image exists (building it via
 #      scripts/build.sh if not) and is new enough for the dev container.
@@ -28,31 +27,7 @@ esac
 docker info >/dev/null 2>&1 \
   || die "Cannot reach the Docker daemon as $(id -un). Is Docker running, and are you in the docker group? (see README \"VS Code\")"
 
-# Set KEY=VALUE in ./.env, leaving any other lines (e.g. your own
-# ENABLE_PX4=on) alone. Only rewrites the file when the value changes.
-set_env() {
-  local key="$1" value="$2" tmp
-  if [ -f "${ENV_FILE}" ] && [ "$(grep "^${key}=" "${ENV_FILE}" || true)" = "${key}=${value}" ]; then
-    return
-  fi
-  tmp="$(mktemp "${ENV_FILE}.XXXXXX")"
-  if [ -f "${ENV_FILE}" ]; then
-    grep -v "^${key}=" "${ENV_FILE}" > "${tmp}" || true
-  else
-    echo "# Host ids for docker-compose.yml, kept up to date by .devcontainer/initialize.sh." > "${tmp}"
-  fi
-  echo "${key}=${value}" >> "${tmp}"
-  chmod 644 "${tmp}"
-  mv "${tmp}" "${ENV_FILE}"
-}
-
-IFS=: read -r HOST_UID HOST_GID <<< "$(host_uid_gid)"
-set_env UID "${HOST_UID}"
-set_env GID "${HOST_GID}"
-DIALOUT_GID="$(host_dialout_gid)"
-if [ -n "${DIALOUT_GID}" ]; then
-  set_env DIALOUT_GID "${DIALOUT_GID}"
-fi
+write_host_env "${ENV_FILE}"
 
 xhost +local:docker >/dev/null 2>&1 || warn "xhost not available; X11 forwarding may not work"
 

@@ -44,11 +44,87 @@ default_build_jobs() {
   echo "${jobs}"
 }
 
+# Echo the gid of host group $1, or nothing if the host has no such group.
+host_group_gid() {
+  getent group "$1" 2>/dev/null | cut -d: -f3 || true
+}
+
 # Echo the host's `dialout` group gid (owns serial devices like
 # /dev/ttyACM0 on most Linux distros), or nothing if there isn't one --
 # callers should skip --group-add entirely in that case rather than fail.
 host_dialout_gid() {
-  getent group dialout 2>/dev/null | cut -d: -f3 || true
+  host_group_gid dialout
+}
+
+# Refuse to run as root (directly or via sudo). The host UID/GID are baked
+# into the image's `dev` user and recorded in .env, and as root they'd be
+# 0:0: create-user.sh would turn root itself into `dev`, and everything
+# written to ./workspace would be root-owned on the host.
+require_non_root() {
+  if [ "$(id -u)" -eq 0 ]; then
+    die "Don't run this as root or with sudo: it maps your host UID/GID into the container. Run it as your normal user; if docker then says permission denied, add yourself to the docker group (sudo usermod -aG docker \$USER, then log out and back in)."
+  fi
+}
+
+# Set KEY=VALUE in env file $1, leaving every other line (e.g. your own
+# ENABLE_PX4=on or BUILD_JOBS=2) alone. Only rewrites the file when
+# something changes.
+env_file_set() {
+  local file="$1" key="$2" value="$3" tmp
+  if [ -f "${file}" ] && [ "$(grep "^${key}=" "${file}" || true)" = "${key}=${value}" ]; then
+    return 0
+  fi
+  tmp="$(mktemp "${file}.XXXXXX")"
+  if [ -f "${file}" ]; then
+    grep -v "^${key}=" "${file}" > "${tmp}" || true
+  else
+    echo "# Host ids for docker-compose.yml, kept up to date by scripts/setup-env.sh." > "${tmp}"
+  fi
+  echo "${key}=${value}" >> "${tmp}"
+  chmod 644 "${tmp}"
+  mv "${tmp}" "${file}"
+}
+
+# Remove KEY=... from env file $1, if present.
+env_file_unset() {
+  local file="$1" key="$2" tmp
+  [ -f "${file}" ] && grep -q "^${key}=" "${file}" || return 0
+  tmp="$(mktemp "${file}.XXXXXX")"
+  grep -v "^${key}=" "${file}" > "${tmp}" || true
+  chmod 644 "${tmp}"
+  mv "${tmp}" "${file}"
+}
+
+# The one place host ids reach Compose: records the host user's UID/GID and
+# the gids of the groups that own serial ports (dialout), cameras and GPU
+# card nodes (video) and GPU render nodes (render) in env file $1 (default
+# ./.env, which Compose reads automatically). Used by scripts/setup-env.sh,
+# scripts/build.sh and .devcontainer/initialize.sh. bash and zsh don't
+# export $UID/$GID, so Compose can't see them otherwise -- and
+# docker-compose.yml refuses to start without these rather than silently
+# falling back to 1000.
+#
+# A host without one of those groups gets its own primary gid in its place:
+# a harmless duplicate for group_add, where an empty value would be an error.
+write_host_env() {
+  local file="${1:-.env}" uid gid group key value
+  require_non_root
+  IFS=: read -r uid gid <<< "$(host_uid_gid)"
+  env_file_set "${file}" HOST_UID "${uid}"
+  env_file_set "${file}" HOST_GID "${gid}"
+  for group in dialout video render; do
+    key="$(printf '%s' "${group}" | tr '[:lower:]' '[:upper:]')_GID"
+    value="$(host_group_gid "${group}")"
+    if [ -z "${value}" ]; then
+      warn "Host has no '${group}' group; using your primary gid ${gid} for ${key}"
+      value="${gid}"
+    fi
+    env_file_set "${file}" "${key}" "${value}"
+  done
+  # Written as UID/GID by earlier versions of .devcontainer/initialize.sh;
+  # Compose now reads HOST_UID/HOST_GID instead.
+  env_file_unset "${file}" UID
+  env_file_unset "${file}" GID
 }
 
 log()  { printf '\033[1;34m[ros2-docker]\033[0m %s\n' "$*" >&2; }

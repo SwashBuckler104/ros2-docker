@@ -1,12 +1,16 @@
 #!/usr/bin/env bash
 # Build the humble/drone image. No manual edits needed: GPU/UID/GID are
-# auto-detected unless overridden on the command line.
+# auto-detected unless overridden on the command line. Also (re)writes the
+# host ids in ./.env (scripts/setup-env.sh), so `docker compose` works right
+# after.
 #
 # Usage: scripts/build.sh [--gpu on|off] [--px4] [--jobs N] [--tag TAG]
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 # shellcheck source=lib/common.sh
 source scripts/lib/common.sh
+
+require_non_root
 
 GPU="$(detect_gpu)"
 ENABLE_PX4="off"
@@ -36,6 +40,7 @@ if [ -z "${TAG}" ]; then
   TAG="ros2-docker:humble-drone-${VARIANT}"
 fi
 
+write_host_env .env
 IFS=: read -r HOST_UID HOST_GID <<< "$(host_uid_gid)"
 
 log "Building ${TAG} (GPU=${GPU}, ENABLE_PX4=${ENABLE_PX4}, UID=${HOST_UID}, GID=${HOST_GID}, BUILD_JOBS=${BUILD_JOBS})"
