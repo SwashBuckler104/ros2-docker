@@ -263,6 +263,15 @@ RUN chmod 0644 /etc/ros2-docker/ros-env.sh \
       'if [ -f /etc/ros2-docker/ros-env.sh ]; then . /etc/ros2-docker/ros-env.sh; fi' \
       >> /etc/bash.bashrc
 
+# Ubuntu's /etc/bash.bashrc runs `groups` in every interactive shell to
+# decide whether to print its "To run a command as administrator" hint,
+# unless ~/.sudo_as_admin_successful exists. Host gids added at runtime
+# (--group-add/group_add) that have no name in the image -- e.g. the host's
+# render group -- make `groups` warn "cannot find name for group ID N" in
+# every shell. The marker skips that check for dev and root.
+RUN touch /root/.sudo_as_admin_successful /home/dev/.sudo_as_admin_successful \
+    && chown ${HOST_UID}:${HOST_GID} /home/dev/.sudo_as_admin_successful
+
 USER dev
 WORKDIR ${WORKSPACE_DIR}
 
