@@ -26,6 +26,9 @@ services:
         ENABLE_PX4: "${ENABLE_PX4:-off}"
         HOST_UID: "${UID:-1000}"
         HOST_GID: "${GID:-1000}"
+        # Parallel compile jobs; each can take 1-2 GB of RAM. scripts/build.sh
+        # sizes this from your RAM -- for Compose, set BUILD_JOBS in .env.
+        BUILD_JOBS: "${BUILD_JOBS:-4}"
     image: ros2-docker:humble-drone
     container_name: ros2-docker-humble-drone
     stdin_open: true

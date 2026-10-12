@@ -29,6 +29,21 @@ host_uid_gid() {
   echo "$(id -u):$(id -g)"
 }
 
+# Echo a default for the BUILD_JOBS build arg: one compile job per 3 GiB of
+# total RAM (each Ceres/VINS compiler process can peak at 1-2 GB, plus
+# headroom for whatever else the machine is doing), capped at the CPU count.
+# Uses MemTotal rather than MemAvailable so the value -- and with it the
+# Docker build cache -- stays the same from one build to the next.
+default_build_jobs() {
+  local mem_kib jobs cpus
+  mem_kib="$(awk '/^MemTotal:/ {print $2}' /proc/meminfo 2>/dev/null || true)"
+  cpus="$(nproc 2>/dev/null || echo 1)"
+  jobs=$(( ${mem_kib:-0} / (3 * 1024 * 1024) ))
+  [ "${jobs}" -lt 1 ] && jobs=1
+  [ "${jobs}" -gt "${cpus}" ] && jobs="${cpus}"
+  echo "${jobs}"
+}
+
 # Echo the host's `dialout` group gid (owns serial devices like
 # /dev/ttyACM0 on most Linux distros), or nothing if there isn't one --
 # callers should skip --group-add entirely in that case rather than fail.

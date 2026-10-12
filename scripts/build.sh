@@ -2,7 +2,7 @@
 # Build the humble/drone image. No manual edits needed: GPU/UID/GID are
 # auto-detected unless overridden on the command line.
 #
-# Usage: scripts/build.sh [--gpu on|off] [--px4] [--tag TAG]
+# Usage: scripts/build.sh [--gpu on|off] [--px4] [--jobs N] [--tag TAG]
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 # shellcheck source=lib/common.sh
@@ -10,12 +10,14 @@ source scripts/lib/common.sh
 
 GPU="$(detect_gpu)"
 ENABLE_PX4="off"
+BUILD_JOBS="$(default_build_jobs)"
 TAG=""
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --gpu) GPU="$2"; shift 2 ;;
     --px4) ENABLE_PX4="on"; shift ;;
+    --jobs) BUILD_JOBS="$2"; shift 2 ;;
     --tag) TAG="$2"; shift 2 ;;
     *) die "Unknown argument: $1" ;;
   esac
@@ -36,12 +38,13 @@ fi
 
 IFS=: read -r HOST_UID HOST_GID <<< "$(host_uid_gid)"
 
-log "Building ${TAG} (GPU=${GPU}, ENABLE_PX4=${ENABLE_PX4}, UID=${HOST_UID}, GID=${HOST_GID})"
+log "Building ${TAG} (GPU=${GPU}, ENABLE_PX4=${ENABLE_PX4}, UID=${HOST_UID}, GID=${HOST_GID}, BUILD_JOBS=${BUILD_JOBS})"
 docker build \
   --build-arg GPU="${GPU}" \
   --build-arg ENABLE_PX4="${ENABLE_PX4}" \
   --build-arg HOST_UID="${HOST_UID}" \
   --build-arg HOST_GID="${HOST_GID}" \
+  --build-arg BUILD_JOBS="${BUILD_JOBS}" \
   -t "${TAG}" .
 
 if [ "${AUTO_TAG}" -eq 1 ]; then

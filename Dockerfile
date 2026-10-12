@@ -10,7 +10,11 @@
 #                                          on:  nvidia/cuda + ROS2 installed
 #   ENABLE_PX4   off|on   (default off) -- adds px4_msgs/px4_ros_com + Micro
 #                                          XRCE-DDS Agent on top of MAVROS
-#   UID/GID      host user/group ids to map onto the in-container `dev` user
+#   HOST_UID/HOST_GID  host user/group ids to map onto the in-container `dev` user
+#   BUILD_JOBS   parallel compile jobs (default 4) -- each Ceres/VINS
+#                compiler process can take 1-2 GB of RAM, so this, not the
+#                CPU count, is what keeps a build from being OOM-killed;
+#                scripts/build.sh picks a value from the host's RAM
 
 ARG GPU=off
 
@@ -109,6 +113,10 @@ RUN chmod +x /tmp/create-user.sh \
     && cp -r /root/.ros/rosdep /home/dev/.ros/rosdep \
     && chown -R ${HOST_UID}:${HOST_GID} /home/dev ${OVERLAY_WS}
 
+# Declared here, not with the other ARGs above, so changing it only
+# invalidates the compile layers below, not the apt/user layers.
+ARG BUILD_JOBS=4
+
 # --- Layer: Ceres Solver 2.1.0, built from source (VINS-Fusion dependency) -
 ARG CERES_COMMIT=f68321e7de8929fbcdb95dd42877531e64f72f66
 # hadolint ignore=DL3003
@@ -117,7 +125,7 @@ RUN git clone https://github.com/ceres-solver/ceres-solver.git /tmp/ceres-solver
     && git checkout ${CERES_COMMIT} \
     && mkdir build && cd build \
     && cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF -DBUILD_EXAMPLES=OFF \
-    && make -j"$(nproc)" \
+    && make -j"${BUILD_JOBS}" \
     && make install \
     && rm -rf /tmp/ceres-solver
 
@@ -154,7 +162,7 @@ RUN if [ "${ENABLE_PX4}" = "on" ]; then \
       && git clone --branch ${MICRO_XRCE_DDS_AGENT_TAG} --depth 1 \
         https://github.com/eProsima/Micro-XRCE-DDS-Agent.git /tmp/micro-xrce-dds-agent \
       && cd /tmp/micro-xrce-dds-agent && mkdir build && cd build \
-      && cmake .. -DCMAKE_BUILD_TYPE=Release && make -j"$(nproc)" && make install && ldconfig \
+      && cmake .. -DCMAKE_BUILD_TYPE=Release && make -j"${BUILD_JOBS}" && make install && ldconfig \
       && rm -rf /tmp/micro-xrce-dds-agent ; \
     fi
 
@@ -177,9 +185,14 @@ RUN apt-get update \
 # directories to the image root (/build, /install, /log) instead of under
 # ${OVERLAY_WS}, leaving /opt/overlay_ws/install/setup.bash missing and
 # VINS-Fusion unusable despite colcon reporting a clean build.
+#
+# One package at a time with BUILD_JOBS make jobs each: colcon's default is
+# one worker per CPU *and* `make -j$(nproc)` inside each, i.e. up to nproc^2
+# compiler processes.
 WORKDIR ${OVERLAY_WS}
 RUN source /opt/ros/${ROS_DISTRO}/setup.bash \
-    && colcon build --merge-install --cmake-args -DCMAKE_BUILD_TYPE=Release \
+    && MAKEFLAGS="-j${BUILD_JOBS}" colcon build --merge-install --parallel-workers 1 \
+      --cmake-args -DCMAKE_BUILD_TYPE=Release \
       --base-paths ${OVERLAY_WS} \
     && chown -R ${HOST_UID}:${HOST_GID} ${OVERLAY_WS}
 
