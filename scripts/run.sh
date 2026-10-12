@@ -57,7 +57,10 @@ done
 allow_x11_for_user
 
 log "Running ${TAG} as ${NAME}"
-docker run -it --rm \
+# --init: tini as PID 1 forwards SIGTERM (an interactive bash as PID 1
+# ignores it, so `docker stop` always waited 10 s, then SIGKILLed) and reaps
+# processes orphaned by `ros2 launch`.
+docker run -it --rm --init \
   --name "${NAME}" \
   --network host \
   --ipc host \

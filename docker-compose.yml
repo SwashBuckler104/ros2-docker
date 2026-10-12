@@ -35,6 +35,10 @@ services:
     container_name: ros2-docker-humble-drone
     stdin_open: true
     tty: true
+    # tini as PID 1: forwards SIGTERM (an interactive bash as PID 1 ignores
+    # it, so every `docker compose down`/`stop` waited the full 10 s and then
+    # SIGKILLed everything) and reaps processes orphaned by `ros2 launch`.
+    init: true
     network_mode: host
     ipc: host
     privileged: false

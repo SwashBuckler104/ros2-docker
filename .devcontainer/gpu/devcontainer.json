@@ -18,7 +18,6 @@
   "initializeCommand": ["bash", "${localWorkspaceFolder}/.devcontainer/initialize.sh", "gpu"],
 
   "overrideCommand": true,
-  "init": true,
   "shutdownAction": "stopCompose",
 
   "capAdd": ["SYS_PTRACE"],

@@ -20,10 +20,10 @@
   "initializeCommand": ["bash", "${localWorkspaceFolder}/.devcontainer/initialize.sh", "cpu"],
 
   // Keep the container alive independently of the image's interactive
-  // `bash` CMD, with tini as PID 1 to reap processes orphaned by
-  // `ros2 launch`. Closing the last VS Code window stops (not removes) it.
+  // `bash` CMD. tini as PID 1 (to reap processes orphaned by `ros2 launch`)
+  // comes from `init: true` on the compose service, not from here. Closing
+  // the last VS Code window stops (not removes) it.
   "overrideCommand": true,
-  "init": true,
   "shutdownAction": "stopCompose",
 
   // Lets gdb attach to running nodes and disable ASLR for launched ones.
