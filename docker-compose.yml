@@ -44,3 +44,12 @@ services:
     # gid 20 (check with `getent group dialout`).
     group_add:
       - "${DIALOUT_GID:-20}"
+    # The /dev bind-mount above only makes device nodes *visible*; the
+    # container's device cgroup still refuses to open them (EPERM, even as
+    # root) unless allowed here. 166 = USB CDC-ACM (/dev/ttyACM*, e.g. a
+    # CubeOrangePlus over USB), 188 = USB-serial adapters (/dev/ttyUSB*,
+    # telemetry radios). Matches by major number, so hot-plugged devices
+    # work too.
+    device_cgroup_rules:
+      - "c 166:* rmw"
+      - "c 188:* rmw"

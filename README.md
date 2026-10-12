@@ -101,7 +101,12 @@ ros2 topic echo /mavros/state
 
 `/dev:/dev` is bind-mounted into the container (`scripts/run.sh` and
 `docker-compose.yml` both do this) so any `/dev/ttyACM*`/`/dev/ttyUSB*` the
-host enumerates is visible inside. Serial devices are normally owned
+host enumerates is visible inside. Visible isn't enough on its own: the
+container's device cgroup blocks opening bind-mounted device nodes (EPERM,
+even as root), so both also allow character-device majors 166
+(`/dev/ttyACM*`) and 188 (`/dev/ttyUSB*`) via `--device-cgroup-rule` /
+`device_cgroup_rules:`. This also covers boards plugged in after the
+container started. Serial devices are normally owned
 `root:dialout` on the host; both `scripts/run.sh` and `docker-compose.yml`
 add the container to that gid automatically (`--group-add`/`group_add:`, gid
 auto-detected via `getent group dialout`, override with the `DIALOUT_GID`
