@@ -46,8 +46,19 @@ jobs:
           # gap on branches that install via rosdep-resolved package lists.
           ignore: DL3008,DL3013
 
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # shellcheck is preinstalled on GitHub's Ubuntu runners; the repo's
+      # .shellcheckrc applies.
+      - name: Lint shell scripts
+        run: |
+          shellcheck --version
+          git ls-files -z '*.sh' | xargs -0 --no-run-if-empty shellcheck
+
   build-and-smoke-test:
-    needs: hadolint
+    needs: [hadolint, shellcheck]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
