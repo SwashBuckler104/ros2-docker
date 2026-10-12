@@ -5,7 +5,8 @@
 #   1. records host UID/GID and device-group gids in the repo's ./.env via
 #      write_host_env (same as scripts/setup-env.sh), which Compose reads
 #      automatically and docker-compose.yml requires;
-#   2. allows local X11 clients, same as scripts/run.sh;
+#   2. lets your UID (and so the container's `dev`) use your X display,
+#      same as scripts/run.sh (allow_x11_for_user);
 #   3. makes sure the image exists (building it via scripts/build.sh if not)
 #      and is new enough for the dev container: ros2-docker:humble-drone
 #      for cpu, ros2-docker:humble-drone-gpu (the tag docker-compose.gpu.yml
@@ -31,7 +32,7 @@ docker info >/dev/null 2>&1 \
 
 write_host_env "${ENV_FILE}"
 
-xhost +local:docker >/dev/null 2>&1 || warn "xhost not available; X11 forwarding may not work"
+allow_x11_for_user
 
 if [ "${VARIANT}" = "gpu" ] && [ "$(detect_gpu)" != "on" ]; then
   die "GPU dev container selected, but no NVIDIA GPU + NVIDIA Container Toolkit detected. Use the CPU config, or see README \"GPU support\"."

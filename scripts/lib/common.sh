@@ -122,6 +122,27 @@ write_host_env() {
   env_file_unset "${file}" GID
 }
 
+# Let the container talk to your X server with the narrowest grant that
+# works: the X server's own "SI:localuser:<you>" entry, i.e. only clients
+# running as your UID -- which the container's `dev` user is, since the
+# image is built with your HOST_UID. Stock Ubuntu desktops (Xorg and GNOME's
+# Xwayland) already have this entry, making this a no-op there. Not
+# `xhost +local:docker`: for the `local:` family the name is ignored, so
+# that opens the display to every local process of every user and
+# container.
+allow_x11_for_user() {
+  if [ -z "${DISPLAY:-}" ]; then
+    warn "DISPLAY is not set; GUI apps (rviz2, Gazebo) won't be able to open windows"
+    return 0
+  fi
+  if ! command -v xhost >/dev/null 2>&1; then
+    warn "xhost not found (install x11-xserver-utils); if GUI apps can't open a display, run: xhost +SI:localuser:$(id -un)"
+    return 0
+  fi
+  xhost "+SI:localuser:$(id -un)" >/dev/null 2>&1 \
+    || warn "xhost +SI:localuser:$(id -un) failed; GUI apps may not be able to open a display"
+}
+
 log()  { printf '\033[1;34m[ros2-docker]\033[0m %s\n' "$*" >&2; }
 warn() { printf '\033[1;33m[ros2-docker]\033[0m %s\n' "$*" >&2; }
 die()  { printf '\033[1;31m[ros2-docker]\033[0m %s\n' "$*" >&2; exit 1; }

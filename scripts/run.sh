@@ -54,7 +54,7 @@ for group in dialout video render; do
   fi
 done
 
-xhost +local:docker >/dev/null 2>&1 || warn "xhost not available; X11 forwarding may not work"
+allow_x11_for_user
 
 log "Running ${TAG} as ${NAME}"
 docker run -it --rm \

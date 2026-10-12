@@ -14,8 +14,9 @@
   "workspaceFolder": "/home/dev/ws",
   "remoteUser": "dev",
 
-  // Host side: writes UID/GID/DIALOUT_GID to ./.env, runs xhost, and builds
-  // the image via scripts/build.sh if it does not exist yet.
+  // Host side: writes host ids to ./.env (scripts/setup-env.sh), grants your
+  // UID access to the X display, and builds the image via scripts/build.sh
+  // if it does not exist yet.
   "initializeCommand": ["bash", "${localWorkspaceFolder}/.devcontainer/initialize.sh", "cpu"],
 
   // Keep the container alive independently of the image's interactive
