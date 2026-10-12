@@ -97,10 +97,15 @@ COPY common/create-user.sh /tmp/create-user.sh
 # rosdep keeps its cache per user (~/.ros/rosdep), and `rosdep update` above
 # ran as root, so `dev` gets a copy: otherwise every rosdep command as `dev`
 # fails with "your rosdep installation has not been initialized yet".
+#
+# ~/.vscode-server is pre-created as `dev` for the VS Code dev container
+# (.devcontainer/), which mounts a named volume there: a new volume copies
+# the ownership of the image directory it shadows, and Docker would
+# otherwise create it root-owned, so the VS Code server could not install.
 RUN chmod +x /tmp/create-user.sh \
     && env DEV_USER=dev UID=${HOST_UID} GID=${HOST_GID} /tmp/create-user.sh \
     && rm /tmp/create-user.sh \
-    && mkdir -p ${WORKSPACE_DIR}/src ${OVERLAY_WS}/src /home/dev/.ros \
+    && mkdir -p ${WORKSPACE_DIR}/src ${OVERLAY_WS}/src /home/dev/.ros /home/dev/.vscode-server \
     && cp -r /root/.ros/rosdep /home/dev/.ros/rosdep \
     && chown -R ${HOST_UID}:${HOST_GID} /home/dev ${OVERLAY_WS}
 
@@ -197,18 +202,6 @@ RUN if [ "${GPU}" = "on" ]; then TORCH_INDEX=cu124; else TORCH_INDEX=cpu; fi \
       -r <(grep -vE '^(torch|torchvision)==' /tmp/requirements.txt) \
     && python3 -m pip check \
     && rm /tmp/requirements.txt
-
-# --- Layer: VS Code Dev Containers support (.devcontainer/) ---------------
-# Kept here, after the heavy layers, rather than in deps/apt-packages.txt so
-# changing it never invalidates the Ceres/VINS/RL cache. gdb backs the C/C++
-# extension's debugger. ~/.vscode-server is pre-created as `dev` because the
-# devcontainer mounts a named volume there: a new volume copies the
-# ownership of the image directory it shadows, and Docker would otherwise
-# create it root-owned, so the VS Code server could not install.
-RUN apt-get update && apt-get install -y --no-install-recommends gdb \
-    && rm -rf /var/lib/apt/lists/* \
-    && mkdir -p /home/dev/.vscode-server \
-    && chown ${HOST_UID}:${HOST_GID} /home/dev/.vscode-server
 
 # --- Layer: user workspace -- baked in only as a CI/first-run fallback; a
 # real bind-mount of ./workspace (see docker-compose.yml) shadows this. -----
