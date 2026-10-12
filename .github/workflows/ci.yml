@@ -43,3 +43,21 @@ jobs:
         colcon build --symlink-install &&
         bash -ic 'ros2 pkg prefix minimal_pkg && ros2 run minimal_py_pkg minimal_py_node'
 
+  # Every Compose combination the README and the dev containers use must
+  # parse, with the .env scripts/setup-env.sh generates (docker-compose.yml
+  # refuses to interpolate without it).
+  compose-config:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate .env
+        run: ./scripts/setup-env.sh
+      - name: Validate compose files
+        run: |
+          docker compose version
+          docker compose config -q
+          docker compose -f docker-compose.yml -f docker-compose.gpu.yml config -q
+          docker compose -f docker-compose.yml -f .devcontainer/docker-compose.devcontainer.yml config -q
+          docker compose -f docker-compose.yml -f docker-compose.gpu.yml \
+            -f .devcontainer/docker-compose.devcontainer.yml \
+            -f .devcontainer/gpu/docker-compose.devcontainer-gpu.yml config -q
