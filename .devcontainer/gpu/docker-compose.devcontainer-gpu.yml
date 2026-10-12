@@ -1,0 +1,7 @@
+# GPU variant of ../docker-compose.devcontainer.yml: a separate project and
+# container name, so switching between the CPU and GPU dev container configs
+# never silently reattaches to a container created without the GPU overlay.
+name: ros2-docker-devcontainer-gpu
+services:
+  drone:
+    container_name: ros2-docker-humble-drone-devcontainer-gpu

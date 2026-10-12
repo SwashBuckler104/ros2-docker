@@ -8,3 +8,4 @@ workspace/log
 **/*.pyc
 *.md
 !README.md
+.env

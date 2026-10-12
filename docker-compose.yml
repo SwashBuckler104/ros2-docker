@@ -2,7 +2,9 @@ services:
   # UID/GID default to 1000 unless exported into the environment first, e.g.
   # `UID=$(id -u) GID=$(id -g) docker compose up --build` -- bash does not
   # export its builtin $UID/$GID automatically. Prefer scripts/build.sh,
-  # which does this detection for you.
+  # which does this detection for you. (Opening the repo in a VS Code dev
+  # container also records them, plus DIALOUT_GID, in a gitignored ./.env,
+  # which Compose reads automatically.)
   #
   # This base file is deliberately hardware-agnostic -- it works unmodified
   # on any PC (CPU-only, integrated GPU, or a discrete GPU you're not using
@@ -44,3 +46,12 @@ services:
     # gid 20 (check with `getent group dialout`).
     group_add:
       - "${DIALOUT_GID:-20}"
+    # The /dev bind-mount above only makes device nodes *visible*; the
+    # container's device cgroup still refuses to open them (EPERM, even as
+    # root) unless allowed here. 166 = USB CDC-ACM (/dev/ttyACM*, e.g. a
+    # CubeOrangePlus over USB), 188 = USB-serial adapters (/dev/ttyUSB*,
+    # telemetry radios). Matches by major number, so hot-plugged devices
+    # work too.
+    device_cgroup_rules:
+      - "c 166:* rmw"
+      - "c 188:* rmw"

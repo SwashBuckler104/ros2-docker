@@ -4,3 +4,8 @@ workspace/log/
 *.pyc
 __pycache__/
 .vscode/
+# ...except the in-container VS Code config (container paths only), shared
+# by the Dev Containers and "Attach to Running Container" workflows.
+!workspace/.vscode/
+# Host UID/GID/dialout gid written by .devcontainer/initialize.sh.
+.env

@@ -1,0 +1,46 @@
+{
+  // Debuggers inherit the VS Code server's environment (ROS 2 + overlay +
+  // ~/ws/install, from ~/.bashrc). After building a new package, run
+  // "Developer: Reload Window" if its libraries are not found.
+  "version": "0.2.0",
+  "inputs": [
+    { "id": "package", "type": "promptString", "description": "ROS 2 package", "default": "minimal_pkg" },
+    { "id": "executable", "type": "promptString", "description": "Executable in that package", "default": "minimal_node" }
+  ],
+  "configurations": [
+    {
+      "name": "C++: launch ROS 2 node (gdb)",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/install/${input:package}/lib/${input:package}/${input:executable}",
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      "MIMode": "gdb",
+      "miDebuggerPath": "/usr/bin/gdb",
+      "setupCommands": [
+        { "description": "Enable gdb pretty-printing", "text": "-enable-pretty-printing", "ignoreFailures": true }
+      ],
+      "preLaunchTask": "colcon: build"
+    },
+    {
+      "name": "C++: attach to running node (gdb)",
+      "type": "cppdbg",
+      "request": "attach",
+      "program": "${workspaceFolder}/install/${input:package}/lib/${input:package}/${input:executable}",
+      "processId": "${command:pickProcess}",
+      "MIMode": "gdb",
+      "miDebuggerPath": "/usr/bin/gdb",
+      "setupCommands": [
+        { "description": "Enable gdb pretty-printing", "text": "-enable-pretty-printing", "ignoreFailures": true }
+      ]
+    },
+    {
+      "name": "Python: current file",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${file}",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    }
+  ]
+}

@@ -34,6 +34,12 @@ if [ -e /dev/dri ]; then
   DEVICE_FLAGS+=(--device /dev/dri:/dev/dri)
 fi
 
+# The /dev bind-mount below only makes device nodes visible; the device
+# cgroup still blocks opening them unless allowed by major number (also
+# covers hot-plugged devices): 166 = /dev/ttyACM* (e.g. a CubeOrangePlus
+# over USB), 188 = /dev/ttyUSB* (telemetry radios, USB-serial adapters).
+DEVICE_FLAGS+=(--device-cgroup-rule 'c 166:* rmw' --device-cgroup-rule 'c 188:* rmw')
+
 # Serial devices (e.g. a CubeOrangePlus on /dev/ttyACM0) are normally
 # root:dialout 660 on the host; add the container to that gid so the
 # non-root `dev` user can open them without a manual chmod/sudo.
