@@ -14,8 +14,8 @@ EXTRA_ARGS=()
 
 while [ $# -gt 0 ]; do
   case "$1" in
-    --tag) TAG="$2"; shift 2 ;;
-    --name) NAME="$2"; shift 2 ;;
+    --tag) require_value "$@"; TAG="$2"; shift 2 ;;
+    --name) require_value "$@"; NAME="$2"; shift 2 ;;
     --) shift; EXTRA_ARGS=("$@"); break ;;
     *) die "Unknown argument: $1" ;;
   esac

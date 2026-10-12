@@ -11,7 +11,7 @@ NAME="ros2-docker-humble-drone"
 
 while [ $# -gt 0 ]; do
   case "$1" in
-    --name) NAME="$2"; shift 2 ;;
+    --name) require_value "$@"; NAME="$2"; shift 2 ;;
     *) die "Unknown argument: $1" ;;
   esac
 done

@@ -143,6 +143,15 @@ allow_x11_for_user() {
     || warn "xhost +SI:localuser:$(id -un) failed; GUI apps may not be able to open a display"
 }
 
+# Option-parsing guard: `require_value "$@"` in a `--opt) ...` case arm
+# dies unless the option ($1) is followed by a non-empty value ($2), instead
+# of letting `set -u` abort with a bare "$2: unbound variable".
+require_value() {
+  if [ $# -lt 2 ] || [ -z "$2" ]; then
+    die "$1 needs a value"
+  fi
+}
+
 log()  { printf '\033[1;34m[ros2-docker]\033[0m %s\n' "$*" >&2; }
 warn() { printf '\033[1;33m[ros2-docker]\033[0m %s\n' "$*" >&2; }
 die()  { printf '\033[1;31m[ros2-docker]\033[0m %s\n' "$*" >&2; exit 1; }

@@ -19,13 +19,21 @@ TAG=""
 
 while [ $# -gt 0 ]; do
   case "$1" in
-    --gpu) GPU="$2"; shift 2 ;;
+    --gpu) require_value "$@"; GPU="$2"; shift 2 ;;
     --px4) ENABLE_PX4="on"; shift ;;
-    --jobs) BUILD_JOBS="$2"; shift 2 ;;
-    --tag) TAG="$2"; shift 2 ;;
+    --jobs) require_value "$@"; BUILD_JOBS="$2"; shift 2 ;;
+    --tag) require_value "$@"; TAG="$2"; shift 2 ;;
     *) die "Unknown argument: $1" ;;
   esac
 done
+
+case "${GPU}" in
+  on|off) ;;
+  *) die "--gpu must be 'on' or 'off', not '${GPU}'" ;;
+esac
+case "${BUILD_JOBS}" in
+  ''|*[!0-9]*|0) die "--jobs must be a positive integer, not '${BUILD_JOBS}'" ;;
+esac
 
 # Default tag is GPU/CPU-variant-specific (humble-drone-gpu / humble-drone-cpu)
 # so building one variant doesn't silently overwrite the other on disk. We
