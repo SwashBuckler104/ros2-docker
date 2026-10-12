@@ -1,0 +1,31 @@
+{
+  // In-container paths only (this folder is /home/dev/ws inside the
+  // container). Exact flags come from build/compile_commands.json, which
+  // colcon writes when you build with the "colcon: build" task
+  // (-DCMAKE_EXPORT_COMPILE_COMMANDS=ON); includePath is only the fallback
+  // for files that have not been built yet. Deliberately no recursive
+  // /usr/include/** and limitSymbolsToIncludedHeaders stays true, which is
+  // what keeps the IntelliSense database small. Not named "ros2", so the ROS
+  // extension leaves this file alone.
+  "configurations": [
+    {
+      "name": "ROS 2 Humble (container)",
+      "compileCommands": "${workspaceFolder}/build/compile_commands.json",
+      "includePath": [
+        "${workspaceFolder}/src/**",
+        "${workspaceFolder}/install/**",
+        "/opt/overlay_ws/install/include/**",
+        "/opt/ros/humble/include/**",
+        "/usr/include/eigen3",
+        "/usr/include/opencv4"
+      ],
+      "browse": {
+        "limitSymbolsToIncludedHeaders": true
+      },
+      "compilerPath": "/usr/bin/g++",
+      "cStandard": "c11",
+      "cppStandard": "c++17"
+    }
+  ],
+  "version": 4
+}

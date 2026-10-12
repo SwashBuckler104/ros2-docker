@@ -1,0 +1,16 @@
+{
+  // Suggested when /home/dev/ws is opened via "Attach to Running Container"
+  // (Dev Containers installs them automatically). Keep in sync with
+  // .devcontainer/devcontainer.json.
+  "recommendations": [
+    "ms-vscode.cpptools",
+    "ms-python.python",
+    "ms-python.vscode-pylance",
+    "ranch-hand-robotics.rde-ros-2",
+    "redhat.vscode-xml",
+    "redhat.vscode-yaml"
+  ],
+  "unwantedRecommendations": [
+    "ms-iot.vscode-ros"
+  ]
+}

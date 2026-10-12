@@ -1,0 +1,52 @@
+{
+  // In-container settings for /home/dev/ws (shared by the Dev Containers and
+  // "Attach to Running Container" workflows -- see README "VS Code").
+
+  // Python: the system interpreter ROS 2 Humble is built against. Workspace
+  // packages are resolved through the sourced PYTHONPATH; these extra paths
+  // cover ROS 2 itself and the prebuilt overlay. Both keys are set so the
+  // ROS extension does not rewrite them into this file on activation.
+  "python.defaultInterpreterPath": "/usr/bin/python3",
+  "python.analysis.extraPaths": [
+    "/opt/ros/humble/lib/python3.10/site-packages",
+    "/opt/ros/humble/local/lib/python3.10/dist-packages",
+    "/opt/overlay_ws/install/local/lib/python3.10/dist-packages"
+  ],
+  "python.autoComplete.extraPaths": [
+    "/opt/ros/humble/lib/python3.10/site-packages",
+    "/opt/ros/humble/local/lib/python3.10/dist-packages",
+    "/opt/overlay_ws/install/local/lib/python3.10/dist-packages"
+  ],
+  "python.analysis.exclude": ["**/build", "**/install", "**/log", "**/__pycache__"],
+
+  // ROS extension (ranch-hand-robotics.rde-ros-2): source the overlay (which
+  // chains /opt/ros/humble) for its launch/debug/test integration.
+  "ROS2.distro": "humble",
+  "ROS2.rosSetupScript": "/opt/overlay_ws/install/setup.bash",
+
+  // colcon output is generated (and symlinked back into src/ with
+  // --symlink-install): keep it out of file watching and search.
+  "files.watcherExclude": {
+    "**/build/**": true,
+    "**/install/**": true,
+    "**/log/**": true
+  },
+  "search.exclude": {
+    "**/build": true,
+    "**/install": true,
+    "**/log": true
+  },
+  "files.associations": {
+    "*.launch": "xml",
+    "*.sdf": "xml",
+    "*.urdf": "xml",
+    "*.world": "xml",
+    "*.xacro": "xml"
+  },
+
+  // Packages cloned into src/ as their own git repos show up in Source
+  // Control (src/<pkg>/.git is two levels below this folder).
+  "git.repositoryScanMaxDepth": 2,
+
+  "terminal.integrated.defaultProfile.linux": "bash"
+}
