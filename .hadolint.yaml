@@ -1,0 +1,7 @@
+# Same rules CI applies (.github/workflows/_reusable-image-ci.yml), so a
+# local `hadolint Dockerfile` gives the same verdict.
+# DL3008/DL3013: unpinned apt/pip versions -- tracked as a known gap on
+# branches that install via rosdep-resolved package lists.
+ignored:
+  - DL3008
+  - DL3013

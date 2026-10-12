@@ -17,4 +17,6 @@ set -e
 # shellcheck source=ros-env.sh
 source /etc/ros2-docker/ros-env.sh
 
+# Reachable: ros-env.sh's top-level `return` only ends that sourced file.
+# shellcheck disable=SC2317
 exec "$@"

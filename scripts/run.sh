@@ -27,7 +27,7 @@ done
 # set in the GPU image; repeated here for a CPU image on a GPU host).
 GPU_FLAGS=()
 if [ "$(detect_gpu)" = "on" ]; then
-  GPU_FLAGS=(--gpus all -e NVIDIA_DRIVER_CAPABILITIES=compute,utility,graphics,display)
+  GPU_FLAGS=(--gpus all -e "NVIDIA_DRIVER_CAPABILITIES=compute,utility,graphics,display")
 fi
 
 # The /dev bind-mount below only makes device nodes visible; the device

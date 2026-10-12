@@ -1,0 +1,5 @@
+# Resolve `# shellcheck source=...` paths relative to the script's own
+# directory, so `shellcheck scripts/*.sh` follows lib/common.sh from any
+# working directory (CI runs it from the repo root).
+source-path=SCRIPTDIR
+external-sources=true

@@ -60,7 +60,7 @@ if [ -f "/opt/ros/${_ros_env_distro}/setup.bash" ] \
     && source "/opt/ros/${_ros_env_distro}/setup.bash"; then
   for _ros_env_ws in "${OVERLAY_WS:-/opt/overlay_ws}" "${WORKSPACE_DIR:-/home/dev/ws}"; do
     [ -f "${_ros_env_ws}/install/setup.bash" ] || continue
-    # shellcheck disable=SC1090
+    # shellcheck disable=SC1090,SC1091
     if ! source "${_ros_env_ws}/install/setup.bash"; then
       echo "ros-env: warning: failed to source ${_ros_env_ws}/install/setup.bash" \
         "(stale build? rebuild that workspace)" >&2
