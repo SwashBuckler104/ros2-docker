@@ -183,6 +183,18 @@ RUN python3 -m pip install --no-cache-dir -r <(grep -vE '^(torch|torchvision)=='
     fi \
     && rm /tmp/requirements.txt
 
+# --- Layer: VS Code Dev Containers support (.devcontainer/) ---------------
+# Kept here, after the heavy layers, rather than in deps/apt-packages.txt so
+# changing it never invalidates the Ceres/VINS/RL cache. gdb backs the C/C++
+# extension's debugger. ~/.vscode-server is pre-created as `dev` because the
+# devcontainer mounts a named volume there: a new volume copies the
+# ownership of the image directory it shadows, and Docker would otherwise
+# create it root-owned, so the VS Code server could not install.
+RUN apt-get update && apt-get install -y --no-install-recommends gdb \
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p /home/dev/.vscode-server \
+    && chown ${HOST_UID}:${HOST_GID} /home/dev/.vscode-server
+
 # --- Layer: user workspace -- baked in only as a CI/first-run fallback; a
 # real bind-mount of ./workspace (see docker-compose.yml) shadows this. -----
 COPY workspace/src ${WORKSPACE_DIR}/src
