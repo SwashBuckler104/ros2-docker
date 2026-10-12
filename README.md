@@ -22,6 +22,7 @@ GPU.
 - [Features](#features)
 - [Prerequisites](#prerequisites)
 - [Quick start](#quick-start)
+- [VS Code](#vs-code)
 - [Connecting a CubeOrangePlus](#connecting-a-cubeorangeplus-or-any-ardupilot-flight-controller)
 - [GPU support](#gpu-support)
 - [Configuration](#configuration)
@@ -79,6 +80,138 @@ docker compose up --build
 Neither path requires an NVIDIA GPU or the NVIDIA Container Toolkit — both
 degrade to a CPU-only container automatically. See [GPU
 support](#gpu-support) for what it takes to turn CUDA on.
+
+## VS Code
+
+VS Code runs **on the host** and talks to a VS Code Server **inside the
+container** through the [Dev
+Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
+extension. Do not install VS Code (the `code` apt package) inside the
+container: it is a GUI app, and even when it starts it is a second,
+separate VS Code that has none of your extensions or settings.
+
+**Host prerequisites** (once per machine):
+
+- Docker Engine with Compose v2 **2.24 or newer** (`docker compose
+  version`). Use Docker Engine (`docker-ce`), not Docker Desktop or the
+  `docker` snap: they run containers inside a VM or sandbox, which breaks
+  the `/dev` passthrough, the X11 socket mount and (depending on version)
+  host networking that this repo relies on.
+- Your user in the `docker` group, so VS Code can run `docker` without
+  sudo: `sudo usermod -aG docker $USER`, then log out and back in. Check
+  with `docker ps`.
+- [VS Code](https://code.visualstudio.com/) (snap, `.deb` or tarball) and
+  the Dev Containers extension (`ms-vscode-remote.remote-containers`).
+
+### Open the repo in a container (recommended)
+
+```bash
+git clone https://github.com/SwashBuckler104/ros2-docker.git -b humble/drone
+code ros2-docker
+```
+
+Then **Dev Containers: Reopen in Container** (VS Code also offers it in a
+notification) and pick **ros2-docker humble/drone (CPU)**, or **(NVIDIA
+GPU)** if `nvidia-smi` and the [NVIDIA Container
+Toolkit](#gpu-support) work on your host. Behind the scenes:
+
+- `.devcontainer/initialize.sh` runs on the host: it writes your UID/GID
+  and the host's `dialout` gid to a gitignored `.env`, runs `xhost
+  +local:docker` for X11, and, if `ros2-docker:humble-drone` doesn't exist
+  yet, builds it with `scripts/build.sh` (one-time, long). No second image
+  is built: the dev container reuses the `drone` service from
+  `docker-compose.yml`, so it has the same image and runtime flags (host
+  network/IPC, X11, `/dev`, `dialout`) as `docker compose up` and
+  `scripts/run.sh`.
+- The container is `ros2-docker-humble-drone-devcontainer` (or `...-gpu`),
+  separate from the `scripts/run.sh` / Compose one, so both can run at
+  once. Closing VS Code stops it; reopening restarts it.
+- VS Code opens `/home/dev/ws` (your `./workspace`) as user `dev`, installs
+  the recommended extensions (C/C++, Python + Pylance, [ROS 2
+  tools](https://marketplace.visualstudio.com/items?itemName=ranch-hand-robotics.rde-ros-2),
+  XML, YAML) and runs `rosdep update`. The VS Code Server and extensions
+  are kept in the `ros2-docker-vscode-server` volume, so a rebuild doesn't
+  download them again.
+
+Inside the container window:
+
+- **Terminal > New Terminal** gives a bash shell with ROS 2, the
+  `/opt/overlay_ws` overlay and `~/ws/install` already sourced. `code
+  <file>` / `code .` work there and open in the same VS Code.
+- **Ctrl+Shift+B** runs the `colcon: build` task (`--symlink-install`,
+  `RelWithDebInfo`, `compile_commands.json`). Run it once after opening:
+  C/C++ IntelliSense reads `build/compile_commands.json`. Other tasks:
+  `colcon: test`, `rosdep: install workspace dependencies`, `colcon: clean`.
+- **Run and Debug** has `C++: launch ROS 2 node (gdb)` (prompts for
+  package and executable), `C++: attach to running node (gdb)`, and
+  `Python: current file`.
+- The settings live in `workspace/.vscode/` and use container paths only.
+  Packages under `src/` that are their own git repos show up in Source
+  Control. This repo itself (Dockerfile, scripts) isn't mounted in the
+  container, so commit changes to it from the host.
+
+The image and the container are separate: after `./scripts/build.sh`,
+run **Dev Containers: Rebuild Container** to switch to the new image. It
+only recreates the container and never rebuilds the image. Don't add
+`features` to `devcontainer.json`, since they would build a second image.
+
+### Attach to a container you already started
+
+If you started the container with `./scripts/run.sh` or `docker compose
+up`, run **Dev Containers: Attach to Running Container...**, pick
+`ros2-docker-humble-drone`, then **File > Open Folder** `/home/dev/ws`.
+`workspace/.vscode/` gives you the same settings, tasks and launch
+configs, and VS Code suggests the extensions from `extensions.json`. To
+make VS Code reopen that folder and install the extensions on its own,
+run **Dev Containers: Open Named Container Configuration File...** on
+`ros2-docker-humble-drone` and add:
+
+```json
+{
+  "workspaceFolder": "/home/dev/ws",
+  "remoteUser": "dev",
+  "extensions": ["ms-vscode.cpptools", "ms-python.python", "ms-python.vscode-pylance",
+                 "ranch-hand-robotics.rde-ros-2", "redhat.vscode-xml", "redhat.vscode-yaml"]
+}
+```
+
+Limits of attaching: `scripts/run.sh` uses `--rm`, so the VS Code Server
+is downloaded again for every new container. gdb can also launch nodes
+but not attach to running ones, because those containers don't get
+`SYS_PTRACE`.
+
+**`code .` from `scripts/enter.sh` / `docker exec` doesn't work, by
+design.** `code` inside the container is a small client that VS Code puts
+on the `PATH` of its own integrated terminals and connects to the window
+that owns them through `VSCODE_IPC_HOOK_CLI`. A plain `docker exec` shell
+has neither, so open files from a VS Code terminal or with **File > Open**
+instead.
+
+### Troubleshooting
+
+- **"Cannot reach the Docker daemon"** from `initialize.sh`: Docker isn't
+  running, or you haven't logged out and back in since joining the
+  `docker` group.
+- **"predates VS Code Dev Containers support"**: your image is older than
+  this setup and has no `~/.vscode-server` directory or `gdb`. Run
+  `./scripts/build.sh`, then reopen.
+- **`!reset` / "unknown tag" error**: your Docker Compose is older than
+  2.24. Upgrade `docker-compose-plugin`.
+- **GUI apps (rviz2, Gazebo) can't open a display**: check that
+  `echo $DISPLAY` inside the container isn't empty. VS Code passes along the
+  `DISPLAY` it was started with, so start VS Code from your desktop session,
+  not from a bare SSH shell. `initialize.sh` runs `xhost +local:docker`
+  every time the container is opened; if it warns that `xhost` is missing,
+  install `x11-xserver-utils` on the host.
+- **Files in `workspace/` owned by the wrong user**: images built by
+  `scripts/build.sh` already use your UID. If yours wasn't, Dev Containers
+  maps `dev` to your UID on its own, in the thin `vsc-...-uid` image it
+  always layers on top. For Compose, `.env` now holds the right
+  `UID`/`GID`.
+- **Start over**: **Dev Containers: Rebuild Container**, or remove
+  everything VS Code-specific with `docker rm -f
+  ros2-docker-humble-drone-devcontainer` and `docker volume rm
+  ros2-docker-vscode-server`.
 
 ## Connecting a CubeOrangePlus (or any ArduPilot flight controller)
 
@@ -244,6 +377,11 @@ docker-compose.yml        hardware-agnostic base: X11, /dev, dialout group, work
 docker-compose.gpu.yml    optional overlay: /dev/dri + NVIDIA GPU reservation (needs the toolkit)
 entrypoint.sh             sources ROS2 -> overlay ws (/opt/overlay_ws) -> user ws
 LICENSE                   Apache-2.0
+.devcontainer/
+  devcontainer.json       VS Code dev container (CPU / any host), reuses the compose `drone` service
+  gpu/devcontainer.json   same, plus docker-compose.gpu.yml
+  docker-compose.devcontainer.yml  dev-container-only compose overrides (no build, vscode-server volume)
+  initialize.sh           host-side prep: .env with UID/GID/DIALOUT_GID, xhost, build image if missing
 deps/
   apt-packages.txt        system + Ceres build deps
   rosdep.yaml              custom rosdep keys (empty -- none needed yet)
@@ -255,6 +393,7 @@ scripts/
 workspace/src/            your colcon workspace (bind-mounted at runtime);
                           ships with `minimal_pkg`, a trivial ament_cmake
                           package CI and scripts/build.sh use as a smoke test
+workspace/.vscode/        in-container VS Code settings, tasks, debug configs
 ```
 
 `/opt/overlay_ws` (inside the image) holds the prebuilt VINS-Fusion [+ PX4
