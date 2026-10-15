@@ -501,7 +501,7 @@ Dockerfile               multi-stage: base-off / base-on (GPU) -> base -> image
 docker-compose.yml        hardware-agnostic base: X11, /dev, dialout group, workspace bind-mount
 docker-compose.gpu.yml    optional overlay: GPU build + NVIDIA GPU reservation (needs the toolkit)
 LICENSE                   Apache-2.0
-common/                   stanzas shared with main (re-sync from there)
+common/                   container-side scripts baked into the image
   ros-env.sh               sources ROS2 -> overlay ws (/opt/overlay_ws) -> user ws;
                           used by the entrypoint and every interactive shell
   ros-entrypoint.sh        image entrypoint (/entrypoint.sh): sources ros-env.sh, execs CMD
@@ -567,9 +567,6 @@ This repo uses [Conventional Commits](https://www.conventionalcommits.org/)
 - Run `./scripts/build.sh` locally and confirm it builds clean.
 - Lint like CI does: `hadolint Dockerfile` and `shellcheck $(git ls-files
   '*.sh')` (both pick up the repo's `.hadolint.yaml` / `.shellcheckrc`).
-- If you touch `common/create-user.sh` or anything else shared with `main`,
-  re-sync the change into the other branches (`humble/ground`,
-  `jazzy/ground`) per the comments in those files.
 - CI (`.github/workflows/ci.yml`) builds with `GPU=off`/`ENABLE_PX4=off` and
   runs the smoke test described in [Testing](#testing-against-a-sitl-manual-not-run-in-ci)
   above; it does not cover the GPU or PX4 build paths, so please test those

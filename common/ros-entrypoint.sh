@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# Canonical entrypoint stanza, shared across every branch. Copied verbatim
-# into each branch and pinned; re-sync from main if this changes.
+# Image entrypoint, installed at /entrypoint.sh.
 #
 # Sources the ROS environment (ROS2 base install -> prebuilt overlay
 # workspace, if any -> user workspace, if built) via

@@ -1,6 +1,5 @@
 # shellcheck shell=bash
-# Canonical ROS environment stanza, shared across every branch. Copied
-# verbatim into each branch and pinned; re-sync from main if this changes.
+# ROS environment for every shell in the container.
 #
 # The single source of truth for what a shell in the container needs
 # sourced. The Dockerfile installs it at /etc/ros2-docker/ros-env.sh and it

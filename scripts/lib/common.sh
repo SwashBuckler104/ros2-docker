@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# Shared helpers sourced by scripts/build.sh, run.sh, enter.sh on every
-# branch. Copied verbatim into each branch; re-sync from main if this
-# changes.
+# Shared helpers sourced by scripts/build.sh, run.sh, enter.sh,
+# setup-env.sh and .devcontainer/initialize.sh.
 
 # Detect whether an NVIDIA GPU + the NVIDIA Container Toolkit are usable.
 # Echoes "on" or "off".

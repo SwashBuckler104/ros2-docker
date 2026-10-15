@@ -1,7 +1,7 @@
 name: Reusable image CI
 
-# Called by each branch's own .github/workflows/ci.yml. Lives on main and is
-# copied down into every branch; re-sync from main if this changes.
+# Called by .github/workflows/ci.yml with this branch's image tag, build
+# args and smoke-test commands.
 
 on:
   workflow_call:
