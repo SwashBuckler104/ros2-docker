@@ -43,7 +43,7 @@ services:
     ipc: host
     privileged: false
     environment:
-      - DISPLAY=${DISPLAY}
+      - DISPLAY=${DISPLAY:-}
       - QT_X11_NO_MITSHM=1
       # Passed through from your shell (or .env) only when set; otherwise the
       # ROS defaults apply. With host networking every ROS 2 node on the LAN
