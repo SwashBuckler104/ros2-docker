@@ -47,9 +47,9 @@ jobs:
   # parse, with the .env scripts/setup-env.sh generates (docker-compose.yml
   # refuses to interpolate without it).
   compose-config:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Generate .env
         run: ./scripts/setup-env.sh
       - name: Validate compose files

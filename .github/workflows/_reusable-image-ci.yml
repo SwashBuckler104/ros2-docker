@@ -35,9 +35,9 @@ on:
 
 jobs:
   hadolint:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Lint Dockerfile
         uses: hadolint/hadolint-action@v3.1.0
         with:
@@ -47,9 +47,9 @@ jobs:
           ignore: DL3008,DL3013
 
   shellcheck:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # shellcheck is preinstalled on GitHub's Ubuntu runners; the repo's
       # .shellcheckrc applies.
       - name: Lint shell scripts
@@ -59,9 +59,9 @@ jobs:
 
   build-and-smoke-test:
     needs: [hadolint, shellcheck]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Build image
         run: |
